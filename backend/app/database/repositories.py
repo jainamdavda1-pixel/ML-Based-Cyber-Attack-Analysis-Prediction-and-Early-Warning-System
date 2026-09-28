@@ -50,18 +50,23 @@ class PredictionRepository:
         return query.order_by(PredictionRecord.timestamp.desc()).limit(limit).all()
 
     @staticmethod
-    def get_dashboard_summary(db: Session):
-        total = db.query(PredictionRecord).count()
-        attacks = db.query(PredictionRecord).filter(PredictionRecord.is_attack == True).count()
-        high_risk = db.query(PredictionRecord).filter(PredictionRecord.risk_level == "High").count()
-        critical_risk = db.query(PredictionRecord).filter(PredictionRecord.risk_level == "Critical").count()
+    def get_dashboard_summary(db: Session, dataset: str = None):
+        base_query = db.query(PredictionRecord)
+        if dataset:
+            ds = "UNSW-NB15" if "unsw" in dataset.lower() else "CICIDS2017"
+            base_query = base_query.filter(PredictionRecord.dataset == ds)
+
+        total = base_query.count()
+        attacks = base_query.filter(PredictionRecord.is_attack == True).count()
+        high_risk = base_query.filter(PredictionRecord.risk_level == "High").count()
+        critical_risk = base_query.filter(PredictionRecord.risk_level == "Critical").count()
         
         avg_risk = 0.0
         if total > 0:
-            records = db.query(PredictionRecord.risk_score).all()
+            records = base_query.with_entities(PredictionRecord.risk_score).all()
             avg_risk = sum(r[0] for r in records if r[0] is not None) / total
 
-        recent_alerts = db.query(PredictionRecord).order_by(PredictionRecord.timestamp.desc()).limit(10).all()
+        recent_alerts = base_query.order_by(PredictionRecord.timestamp.desc()).limit(10).all()
 
         return {
             "total_analyzed": total,

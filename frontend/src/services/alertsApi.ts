@@ -2,8 +2,9 @@ import { fetchApi } from './api';
 import { DashboardSummary, AlertItem } from '../types/alert';
 
 export const alertsApi = {
-  getDashboardSummary: (): Promise<DashboardSummary> => {
-    return fetchApi<DashboardSummary>('/dashboard/summary');
+  getDashboardSummary: (dataset?: string): Promise<DashboardSummary> => {
+    const url = dataset ? `/dashboard/summary?dataset=${encodeURIComponent(dataset)}` : '/dashboard/summary';
+    return fetchApi<DashboardSummary>(url);
   },
 
   getHistory: (limit: number = 100, dataset?: string, riskLevel?: string): Promise<AlertItem[]> => {

@@ -28,14 +28,19 @@ export function App() {
         <main className="flex-1 p-6 overflow-y-auto">
           {currentTab === 'dashboard' && <DashboardPage selectedDataset={selectedDataset} />}
           {currentTab === 'monitoring' && <LiveMonitoringPage selectedDataset={selectedDataset} />}
-          {currentTab === 'incidents' && <IncidentsPage />}
+          {currentTab === 'incidents' && <IncidentsPage selectedDataset={selectedDataset} />}
           {currentTab === 'detection' && <DetectionPage selectedDataset={selectedDataset} />}
           {currentTab === 'batch' && <BatchAnalysisPage selectedDataset={selectedDataset} />}
-          {currentTab === 'risk' && <RiskPage />}
+          {currentTab === 'risk' && <RiskPage selectedDataset={selectedDataset} />}
           {currentTab === 'explainability' && <AttackAnalysisPage selectedDataset={selectedDataset} />}
-          {currentTab === 'performance' && <ModelPerformancePage />}
-          {currentTab === 'history' && <AlertsPage />}
-          {currentTab === 'about' && <AboutPage />}
+          {currentTab === 'performance' && (
+            <ModelPerformancePage
+              selectedDataset={selectedDataset}
+              onDatasetChange={setSelectedDataset}
+            />
+          )}
+          {currentTab === 'history' && <AlertsPage selectedDataset={selectedDataset} />}
+          {currentTab === 'about' && <AboutPage selectedDataset={selectedDataset} />}
         </main>
       </div>
     </div>

@@ -79,5 +79,6 @@ def get_prediction_history(
     ]
 
 @router.get("/dashboard/summary", tags=["Dashboard"])
-def get_dashboard_summary(db: Session = Depends(get_db)):
-    return PredictionRepository.get_dashboard_summary(db)
+def get_dashboard_summary(dataset: str = None, db: Session = Depends(get_db)):
+    return PredictionRepository.get_dashboard_summary(db, dataset=dataset)
+

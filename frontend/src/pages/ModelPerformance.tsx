@@ -1,9 +1,30 @@
-import React, { useState } from 'react';
-import { BarChart3, AlertCircle, CheckCircle, Database } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BarChart3, AlertCircle, CheckCircle, Database, Cpu, ShieldCheck } from 'lucide-react';
 import { StatCard } from '../components/common/StatCard';
+import { fetchApi } from '../services/api';
 
-export const ModelPerformancePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'cicids' | 'unsw'>('cicids');
+interface ModelPerformanceProps {
+  selectedDataset: string;
+  onDatasetChange?: (ds: string) => void;
+}
+
+export const ModelPerformancePage: React.FC<ModelPerformanceProps> = ({ selectedDataset, onDatasetChange }) => {
+  const [modelInfo, setModelInfo] = useState<any>(null);
+
+  // Synchronize internal active tab with selectedDataset from top-right navbar
+  const activeTab = selectedDataset.toLowerCase().includes('unsw') ? 'unsw' : 'cicids';
+
+  useEffect(() => {
+    fetchApi<any>('/models')
+      .then(setModelInfo)
+      .catch(console.error);
+  }, [selectedDataset]);
+
+  const handleTabChange = (tab: 'cicids' | 'unsw') => {
+    if (onDatasetChange) {
+      onDatasetChange(tab === 'cicids' ? 'cicids2017' : 'unsw-nb15');
+    }
+  };
 
   const cicidsMetrics = {
     accuracy: 99.87,
@@ -12,6 +33,7 @@ export const ModelPerformancePage: React.FC = () => {
     f1: 99.72,
     testSamples: 383203,
     features: 70,
+    modelName: 'CICIDS2017 Multiclass XGBoost Classifier',
     perClass: [
       { name: 'BENIGN', precision: 99.92, recall: 99.89, f1: 99.91, support: 318985, weak: false },
       { name: 'Bot', precision: 88.42, recall: 84.10, f1: 86.21, support: 1966, weak: true },
@@ -35,49 +57,78 @@ export const ModelPerformancePage: React.FC = () => {
     testSamples: 82332,
     features: 42,
     models: [
-      { name: 'Random Forest Baseline', accuracy: 97.21, precision: 96.80, recall: 97.50, f1: 97.15, auc: 99.12 },
-      { name: 'XGBoost Binary Detector', accuracy: 98.45, precision: 98.20, recall: 98.70, f1: 98.45, auc: 99.68 },
-      { name: 'XGBoost Multiclass Classifier', accuracy: 76.75, precision: 74.20, recall: 76.75, f1: 75.10, auc: 92.40 }
+      {
+        name: 'XGBoost Binary Attack Detector',
+        type: 'Primary Binary Classifier',
+        accuracy: 98.45,
+        precision: 98.20,
+        recall: 98.70,
+        f1: 98.45,
+        auc: 99.68,
+        description: 'Optimized gradient boosted tree for distinguishing benign vs malicious flows.'
+      },
+      {
+        name: 'XGBoost Multiclass Classifier',
+        type: '10-Class Threat Categorizer',
+        accuracy: 76.75,
+        precision: 74.20,
+        recall: 76.75,
+        f1: 75.10,
+        auc: 92.40,
+        description: 'Classifies specific attack categories (Analysis, Backdoor, DoS, Exploits, Fuzzers, Generic, Reconnaissance, Shellcode, Worms).'
+      },
+      {
+        name: 'Random Forest Baseline',
+        type: 'Ensemble Baseline',
+        accuracy: 97.21,
+        precision: 96.80,
+        recall: 97.50,
+        f1: 97.15,
+        auc: 99.12,
+        description: 'Random forest ensemble used as empirical performance benchmark.'
+      }
     ]
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-slate-100 font-mono flex items-center space-x-2">
-          <BarChart3 className="w-5 h-5 text-cyan-400" />
-          <span>MODEL PERFORMANCE TELEMETRY</span>
-        </h2>
-        <p className="text-xs text-slate-400 mt-1">
-          Empirical classification metrics, per-class performance breakdowns, and weak-class vulnerability analysis.
-        </p>
-      </div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60 p-6 rounded-2xl border border-slate-800 backdrop-blur-xl">
+        <div>
+          <div className="flex items-center gap-3">
+            <BarChart3 className="h-6 w-6 text-cyan-400" />
+            <h1 className="text-2xl font-bold text-slate-100 font-mono">MODEL PERFORMANCE & METRICS TELEMETRY</h1>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Empirical classification metrics, per-class performance breakdowns, and architecture specifications for {activeTab === 'cicids' ? 'CICIDS2017' : 'UNSW-NB15'}.
+          </p>
+        </div>
 
-      {/* Dataset Selector Tabs */}
-      <div className="flex space-x-2 border-b border-slate-800 pb-2">
-        <button
-          onClick={() => setActiveTab('cicids')}
-          className={`flex items-center space-x-2 px-4 py-2 text-xs font-mono font-semibold rounded-lg transition ${
-            activeTab === 'cicids'
-              ? 'bg-cyan-950 text-cyan-400 border border-cyan-800'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-          }`}
-        >
-          <Database className="w-4 h-4" />
-          <span>CICIDS2017 (Multiclass XGBoost)</span>
-        </button>
+        {/* Dataset Selector Tabs */}
+        <div className="flex space-x-2 bg-slate-800/80 p-1 rounded-xl border border-slate-700">
+          <button
+            onClick={() => handleTabChange('cicids')}
+            className={`flex items-center space-x-2 px-3.5 py-2 text-xs font-mono font-semibold rounded-lg transition ${
+              activeTab === 'cicids'
+                ? 'bg-cyan-600 text-slate-950 font-bold shadow-md shadow-cyan-600/20'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span>CICIDS2017</span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab('unsw')}
-          className={`flex items-center space-x-2 px-4 py-2 text-xs font-mono font-semibold rounded-lg transition ${
-            activeTab === 'unsw'
-              ? 'bg-cyan-950 text-cyan-400 border border-cyan-800'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-          }`}
-        >
-          <Database className="w-4 h-4" />
-          <span>UNSW-NB15 (Binary & Multiclass)</span>
-        </button>
+          <button
+            onClick={() => handleTabChange('unsw')}
+            className={`flex items-center space-x-2 px-3.5 py-2 text-xs font-mono font-semibold rounded-lg transition ${
+              activeTab === 'unsw'
+                ? 'bg-cyan-600 text-slate-950 font-bold shadow-md shadow-cyan-600/20'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span>UNSW-NB15</span>
+          </button>
+        </div>
       </div>
 
       {/* CICIDS Tab Content */}
@@ -89,6 +140,22 @@ export const ModelPerformancePage: React.FC = () => {
             <StatCard title="Macro Precision" value={`${cicidsMetrics.precision}%`} subtitle="Across 15 classes" icon={BarChart3} color="cyan" />
             <StatCard title="Macro Recall" value={`${cicidsMetrics.recall}%`} subtitle="Attack detection recall" icon={BarChart3} color="indigo" />
             <StatCard title="Macro F1-Score" value={`${cicidsMetrics.f1}%`} subtitle="Harmonic mean" icon={BarChart3} color="amber" />
+          </div>
+
+          {/* Model Specs Card */}
+          <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+            <div>
+              <span className="text-slate-500 block">Trained Architecture:</span>
+              <span className="text-slate-200 font-semibold">{cicidsMetrics.modelName}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block">Feature Dimension:</span>
+              <span className="text-cyan-400 font-semibold">{cicidsMetrics.features} Flow Features (Microsecond Timings)</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block">Target Taxonomies:</span>
+              <span className="text-emerald-400 font-semibold">15 Independent Attack Classes</span>
+            </div>
           </div>
 
           {/* Weak Class Analysis Banner */}
@@ -154,12 +221,22 @@ export const ModelPerformancePage: React.FC = () => {
       {/* UNSW Tab Content */}
       {activeTab === 'unsw' && (
         <div className="space-y-6">
+          {/* Top Metrics Cards for UNSW */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard title="Binary Accuracy" value="98.45%" subtitle="82,332 test samples" icon={CheckCircle} color="emerald" />
+            <StatCard title="Binary Precision" value="98.20%" subtitle="Attack identification" icon={BarChart3} color="cyan" />
+            <StatCard title="Binary Recall" value="98.70%" subtitle="Detection coverage" icon={BarChart3} color="indigo" />
+            <StatCard title="Binary ROC-AUC" value="99.68%" subtitle="Separation metric" icon={BarChart3} color="amber" />
+          </div>
+
+          {/* Model Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {unswMetrics.models.map(m => (
               <div key={m.name} className="cyber-card space-y-4">
                 <div className="border-b border-slate-800 pb-3">
-                  <h3 className="text-sm font-bold text-slate-100 font-mono">{m.name}</h3>
-                  <p className="text-[10px] text-slate-400 mt-0.5 font-mono">UNSW-NB15 (82,332 Test Samples)</p>
+                  <span className="text-[10px] font-mono text-cyan-400 uppercase tracking-wider">{m.type}</span>
+                  <h3 className="text-sm font-bold text-slate-100 font-mono mt-1">{m.name}</h3>
+                  <p className="text-xs text-slate-400 mt-1">{m.description}</p>
                 </div>
 
                 <div className="space-y-2 text-xs font-mono">
@@ -186,6 +263,24 @@ export const ModelPerformancePage: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* UNSW Feature & Class Info Card */}
+          <div className="cyber-card space-y-3">
+            <h3 className="text-sm font-semibold text-slate-200 font-mono flex items-center space-x-2">
+              <ShieldCheck className="w-4 h-4 text-cyan-400" />
+              <span>UNSW-NB15 Attack Category Taxonomies</span>
+            </h3>
+            <p className="text-xs text-slate-300">
+              The UNSW-NB15 multiclass model evaluates 10 target categories across 42 network flow features:
+            </p>
+            <div className="flex flex-wrap gap-2 pt-1 text-xs font-mono">
+              {['Analysis', 'Backdoor', 'DoS', 'Exploits', 'Fuzzers', 'Generic', 'Normal', 'Reconnaissance', 'Shellcode', 'Worms'].map(cat => (
+                <span key={cat} className="px-3 py-1 bg-slate-800/80 text-cyan-300 rounded-lg border border-slate-700">
+                  {cat}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       )}

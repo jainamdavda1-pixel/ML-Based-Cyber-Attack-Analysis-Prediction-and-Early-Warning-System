@@ -14,7 +14,7 @@ export const DashboardPage: React.FC<{ selectedDataset: string }> = ({ selectedD
   const loadData = async () => {
     setLoading(true);
     try {
-      const data = await alertsApi.getDashboardSummary();
+      const data = await alertsApi.getDashboardSummary(selectedDataset);
       setSummary(data);
     } catch (e) {
       console.error(e);

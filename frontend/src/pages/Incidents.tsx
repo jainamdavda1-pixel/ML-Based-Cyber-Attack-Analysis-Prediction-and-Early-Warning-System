@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, Filter, Search, Edit3, CheckCircle, Clock, AlertTriangle, ChevronRight, FileText } from 'lucide-react';
+import { ShieldAlert, Filter, Search, Edit3, CheckCircle, Clock, AlertTriangle, ChevronRight, FileText, Database } from 'lucide-react';
 import { incidentsApi } from '../services/incidentsApi';
 import { Incident } from '../types/incident';
 
-export function IncidentsPage() {
+interface IncidentsPageProps {
+  selectedDataset?: string;
+}
+
+export function IncidentsPage({ selectedDataset = 'cicids2017' }: IncidentsPageProps) {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [explanation, setExplanation] = useState<any | null>(null);
@@ -75,8 +79,13 @@ export function IncidentsPage() {
           </p>
         </div>
 
-        {/* Filters */}
-        <div className="flex items-center gap-3">
+        {/* Filters & Pipeline Indicator */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 text-xs font-mono text-cyan-400">
+            <Database className="w-3.5 h-3.5" />
+            <span>Active Pipeline: {selectedDataset.toUpperCase()}</span>
+          </div>
+
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}

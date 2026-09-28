@@ -1,20 +1,28 @@
 import React, { useEffect, useState } from 'react';
-import { History, Search, Filter, ShieldAlert, Eye, X, ShieldCheck } from 'lucide-react';
+import { History, Search, Filter, ShieldAlert, Eye, X, Database } from 'lucide-react';
 import { alertsApi } from '../services/alertsApi';
 import { AlertItem } from '../types/alert';
 import { RiskBadge, AttackBadge } from '../components/common/Badge';
 
-export const AlertsPage: React.FC = () => {
+export const AlertsPage: React.FC<{ selectedDataset?: string }> = ({ selectedDataset = 'cicids2017' }) => {
   const [history, setHistory] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [datasetFilter, setDatasetFilter] = useState<string>(
+    selectedDataset.toLowerCase().includes('unsw') ? 'UNSW-NB15' : 'CICIDS2017'
+  );
   const [riskFilter, setRiskFilter] = useState('');
   const [selectedAlert, setSelectedAlert] = useState<AlertItem | null>(null);
+
+  useEffect(() => {
+    setDatasetFilter(selectedDataset.toLowerCase().includes('unsw') ? 'UNSW-NB15' : 'CICIDS2017');
+  }, [selectedDataset]);
 
   const loadHistory = async () => {
     setLoading(true);
     try {
-      const data = await alertsApi.getHistory(100, undefined, riskFilter || undefined);
+      const ds = datasetFilter === 'All' ? undefined : datasetFilter;
+      const data = await alertsApi.getHistory(100, ds, riskFilter || undefined);
       setHistory(data);
     } catch (e) {
       console.error(e);
@@ -25,7 +33,7 @@ export const AlertsPage: React.FC = () => {
 
   useEffect(() => {
     loadHistory();
-  }, [riskFilter]);
+  }, [datasetFilter, riskFilter]);
 
   const filteredHistory = history.filter(item => {
     const matchesSearch = item.prediction.toLowerCase().includes(search.toLowerCase()) ||
@@ -36,14 +44,21 @@ export const AlertsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-slate-100 font-mono flex items-center space-x-2">
-          <History className="w-5 h-5 text-cyan-400" />
-          <span>PREDICTION HISTORY & SECURITY ALERTS</span>
-        </h2>
-        <p className="text-xs text-slate-400 mt-1">
-          Historical log database containing evaluated flow predictions, threat classifications, and mitigation recommendations.
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60 p-6 rounded-2xl border border-slate-800 backdrop-blur-xl">
+        <div>
+          <div className="flex items-center gap-3">
+            <History className="w-6 h-6 text-cyan-400" />
+            <h1 className="text-2xl font-bold text-slate-100 font-mono">PREDICTION HISTORY & SECURITY ALERTS</h1>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Historical log database containing evaluated flow predictions, threat classifications, and mitigation recommendations.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 text-xs font-mono text-cyan-400">
+          <Database className="w-3.5 h-3.5" />
+          <span>Active Pipeline: {selectedDataset.toUpperCase()}</span>
+        </div>
       </div>
 
       {/* Filter Bar */}
@@ -60,11 +75,21 @@ export const AlertsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-3 w-full sm:w-auto">
+          <select
+            value={datasetFilter}
+            onChange={e => setDatasetFilter(e.target.value)}
+            className="cyber-input text-xs font-mono"
+          >
+            <option value="All">All Datasets</option>
+            <option value="CICIDS2017">CICIDS2017</option>
+            <option value="UNSW-NB15">UNSW-NB15</option>
+          </select>
+
           <Filter className="w-4 h-4 text-cyan-400" />
           <select
             value={riskFilter}
             onChange={e => setRiskFilter(e.target.value)}
-            className="cyber-input text-xs"
+            className="cyber-input text-xs font-mono"
           >
             <option value="">All Risk Levels</option>
             <option value="Critical">Critical Risk</option>

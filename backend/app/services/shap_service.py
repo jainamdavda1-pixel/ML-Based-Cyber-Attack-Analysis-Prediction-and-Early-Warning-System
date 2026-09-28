@@ -34,7 +34,7 @@ class SHAPService:
         {"feature": "ct_dst_src_ltm", "mean_shap_value": 0.1760, "description": "No. of connections between same source and destination in last 100 connections"}
     ]
 
-    KNOWN_MISCLASSIFICATIONS = [
+    CICIDS_KNOWN_MISCLASSIFICATIONS = [
         {
             "pattern": "Brute Force → Web Attack - XSS",
             "direction": "XSS ↔ Web Attack - Brute Force",
@@ -56,19 +56,43 @@ class SHAPService:
         }
     ]
 
+    UNSW_KNOWN_MISCLASSIFICATIONS = [
+        {
+            "pattern": "Fuzzers ↔ Exploits",
+            "direction": "Fuzzers ↔ Exploits Overlap",
+            "cause": "Similarity in malformed packet buffer payloads and Time-to-Live variance",
+            "details": [
+                "ct_state_ttl and sttl strongly overlap between exploit probes and fuzzing inputs",
+                "sbytes and dbytes ratio exhibits similar packet payload distributions",
+                "ct_srv_src connection frequency is identical for automated vulnerability probes"
+            ]
+        },
+        {
+            "pattern": "Normal → Generic",
+            "direction": "Normal → Generic False Positives",
+            "cause": "High-throughput outbound UDP transactions mimicking cryptographic generic attacks",
+            "details": [
+                "sload and dload spikes in benign video/file streaming trigger generic thresholds",
+                "swin and dwin values of 0 for non-TCP protocols reduce discriminator features"
+            ]
+        }
+    ]
+
     @staticmethod
     def get_explainability(dataset: str = "cicids2017") -> Dict[str, Any]:
         ds = dataset.lower().strip()
         if "unsw" in ds:
             features = SHAPService.UNSW_TOP_GLOBAL_SHAP
+            misclass = SHAPService.UNSW_KNOWN_MISCLASSIFICATIONS
         else:
             features = SHAPService.CICIDS_TOP_GLOBAL_SHAP
+            misclass = SHAPService.CICIDS_KNOWN_MISCLASSIFICATIONS
 
         return {
             "dataset": dataset,
             "disclaimer": "Features that contributed strongly to this prediction (SHAP feature attribution). SHAP features indicate feature attribution, not causal proof of an attack.",
             "top_global_features": features,
-            "known_misclassifications": SHAPService.KNOWN_MISCLASSIFICATIONS
+            "known_misclassifications": misclass
         }
 
     @staticmethod

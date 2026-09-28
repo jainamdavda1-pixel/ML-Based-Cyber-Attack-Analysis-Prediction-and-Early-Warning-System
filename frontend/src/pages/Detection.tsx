@@ -19,7 +19,7 @@ export const DetectionPage: React.FC<{ selectedDataset: string }> = ({ selectedD
     tcp: false,
   });
 
-  const [featureValues, setFeatureValues] = useState<Record<string, number>>({
+  const cicidsDefaults: Record<string, number> = {
     'Destination Port': 80,
     'Flow Duration': 1500,
     'Total Fwd Packets': 10,
@@ -37,7 +37,62 @@ export const DetectionPage: React.FC<{ selectedDataset: string }> = ({ selectedD
     'Init_Win_bytes_forward': 8192,
     'Init_Win_bytes_backward': 255,
     'min_seg_size_forward': 32,
-  });
+  };
+
+  const unswDefaults: Record<string, number> = {
+    'dur': 0.001055,
+    'proto': 6,
+    'service': 0,
+    'state': 2,
+    'spkts': 2,
+    'dpkts': 2,
+    'sbytes': 132,
+    'dbytes': 164,
+    'rate': 2843.6,
+    'sttl': 31,
+    'dttl': 29,
+    'sload': 500473.9,
+    'dload': 621800.9,
+    'sloss': 0,
+    'dloss': 0,
+    'sinpkt': 0.017,
+    'dinpkt': 0.014,
+    'sjit': 0.0,
+    'djit': 0.0,
+    'swin': 255,
+    'stcpb': 0,
+    'dtcpb': 0,
+    'dwin': 255,
+    'tcprtt': 0.0,
+    'synack': 0.0,
+    'ackdat': 0.0,
+    'smean': 66,
+    'dmean': 82,
+    'trans_depth': 0,
+    'response_body_len': 0,
+    'ct_srv_src': 2,
+    'ct_state_ttl': 0,
+    'ct_dst_ltm': 1,
+    'ct_src_dport_ltm': 1,
+    'ct_dst_sport_ltm': 1,
+    'ct_dst_src_ltm': 1,
+    'is_ftp_login': 0,
+    'ct_ftp_cmd': 0,
+    'ct_flw_http_mthd': 0,
+    'ct_src_ltm': 1,
+    'ct_srv_dst': 2,
+    'is_sm_ips_ports': 0
+  };
+
+  const [featureValues, setFeatureValues] = useState<Record<string, number>>(
+    selectedDataset.includes('unsw') ? unswDefaults : cicidsDefaults
+  );
+
+  React.useEffect(() => {
+    setFeatureValues(selectedDataset.includes('unsw') ? unswDefaults : cicidsDefaults);
+    setResult(null);
+    setError(null);
+  }, [selectedDataset]);
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));

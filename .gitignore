@@ -1,0 +1,138 @@
+# ==============================================================================
+# ML-Cyber-Attack-Analysis - Root GitIgnore Configuration
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Python Virtual Environments & Packages
+# ------------------------------------------------------------------------------
+venv/
+venv*/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+
+# ------------------------------------------------------------------------------
+# 2. Python Caches, Bytecode & Testing Artifacts
+# ------------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# ------------------------------------------------------------------------------
+# 3. Frontend Node Dependencies & Build Outputs
+# ------------------------------------------------------------------------------
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+build/
+frontend/build/
+.vite/
+frontend/.vite/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ------------------------------------------------------------------------------
+# 4. Environment Variables & Secrets
+# ------------------------------------------------------------------------------
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+!.env.example
+
+# ------------------------------------------------------------------------------
+# 5. Local Runtime Database & SQLite Files
+# ------------------------------------------------------------------------------
+cyber_security.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-shm
+*.db-wal
+
+# ------------------------------------------------------------------------------
+# 6. Operating System & Editor Files
+# ------------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# ------------------------------------------------------------------------------
+# 7. Temporary Uploads & Scratch Directories
+# ------------------------------------------------------------------------------
+scratch/
+tmp/
+temp/
+uploads/
+tmp_uploads/
+
+# ------------------------------------------------------------------------------
+# 8. Large Datasets Policy (Externalized to Google Drive)
+# ------------------------------------------------------------------------------
+# Ignore raw and processed dataset dumps
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Ignore large raw/processed dataset CSV files across workspace
+*UNSW_NB15_processed*.csv
+*CICIDS_All_Processed*.csv
+*.parquet
+*.hdf5
+
+# Explicitly ensure reproducible split index arrays and READMEs are tracked
+!data/README.md
+!data/**/README.md
+!data/**/splits/*.npy
+!data/**/splits/.gitkeep
+
+# ------------------------------------------------------------------------------
+# 9. Model Artifacts, Results & Research Files
+# ------------------------------------------------------------------------------
+
+# Keep required model artifacts trackable.
+# Do not globally ignore model files: required inference artifacts must be committed.
+
+# Keep selected result summaries, metrics and plots.
+# Exclude large record-level outputs and intermediate explainability arrays.
+results/**/CICIDS_Test_Predictions.csv
+results/**/CICIDS_Final_Risk_Scores.csv
+results/**/CICIDS_SHAP_Values.npy
+results/**/CICIDS_SHAP_Sample_Features.csv
+results/**/CICIDS_SHAP_Sample_Labels.csv
+results/**/phase4_risk_early_warning_results.csv
+
+# Research notebooks are stored in Google Drive by default.
+# Add individual notebooks explicitly if needed for reproducibility.
+
+# Keep Markdown documentation tracked normally.
