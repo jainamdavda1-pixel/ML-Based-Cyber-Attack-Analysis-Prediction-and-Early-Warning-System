@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { UploadCloud, FileText, Download, ShieldAlert, CheckCircle, BarChart3, AlertTriangle } from 'lucide-react';
-import { detectionApi } from '../services/detectionApi';
-import { BatchSummary } from '../types/detection';
+import { UploadCloud, FileText, Download, ShieldAlert, CheckCircle, BarChart3, AlertTriangle, Layers, Radio } from 'lucide-react';
+import { trafficApi } from '../services/trafficApi';
 import { StatCard } from '../components/common/StatCard';
 import { RiskBadge, AttackBadge } from '../components/common/Badge';
 import { AttackCategoryChart } from '../components/charts/AttackCategoryChart';
@@ -9,13 +8,20 @@ import { RiskDistributionChart } from '../components/charts/RiskDistributionChar
 
 export const BatchAnalysisPage: React.FC<{ selectedDataset: string }> = ({ selectedDataset }) => {
   const [file, setFile] = useState<File | null>(null);
+  const [uploadFormat, setUploadFormat] = useState<'csv' | 'pcap'>('csv');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [summary, setSummary] = useState<BatchSummary | null>(null);
+  const [jobResult, setJobResult] = useState<any | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selected = e.target.files[0];
+      setFile(selected);
+      if (selected.name.endsWith('.pcap') || selected.name.endsWith('.pcapng')) {
+        setUploadFormat('pcap');
+      } else if (selected.name.endsWith('.csv')) {
+        setUploadFormat('csv');
+      }
     }
   };
 
@@ -24,9 +30,14 @@ export const BatchAnalysisPage: React.FC<{ selectedDataset: string }> = ({ selec
     if (!file) return;
     setLoading(true);
     setError(null);
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('dataset', selectedDataset);
+
     try {
-      const res = await detectionApi.predictBatch(selectedDataset, file);
-      setSummary(res);
+      const res = await trafficApi.uploadTrafficFile(formData);
+      setJobResult(res);
     } catch (err: any) {
       setError(err.message || 'Batch upload processing failed');
     } finally {
@@ -34,40 +45,46 @@ export const BatchAnalysisPage: React.FC<{ selectedDataset: string }> = ({ selec
     }
   };
 
-  const downloadCSV = () => {
-    if (!summary || !summary.sample_predictions) return;
-    const headers = ['Prediction ID', 'Dataset', 'Prediction', 'Is Attack', 'Attack Probability', 'Confidence', 'Risk Score', 'Risk Level'];
-    const rows = summary.sample_predictions.map(p => [
-      p.prediction_id,
-      p.dataset,
-      p.prediction,
-      p.is_attack,
-      p.attack_probability,
-      p.confidence,
-      p.risk_score,
-      p.risk_level
-    ]);
-
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `batch_predictions_${selectedDataset}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownload = (format: 'csv' | 'json') => {
+    if (!jobResult || !jobResult.job_id) return;
+    const downloadUrl = `http://localhost:8090/api/v1/traffic/jobs/${jobResult.job_id}/download?format=${format}`;
+    window.open(downloadUrl, '_blank');
   };
+
+  const summary = jobResult?.summary;
+  const samplePredictions = jobResult?.sample_results || [];
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-slate-100 font-mono flex items-center space-x-2">
-          <UploadCloud className="w-5 h-5 text-cyan-400" />
-          <span>BATCH NETWORK FLOW ANALYSIS</span>
-        </h2>
-        <p className="text-xs text-slate-400 mt-1">
-          Upload a network traffic CSV capture file to evaluate bulk flow records, generate threat distribution stats, and export prediction CSVs.
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60 p-6 rounded-2xl border border-slate-800 backdrop-blur-xl">
+        <div>
+          <div className="flex items-center gap-3">
+            <UploadCloud className="h-6 w-6 text-cyan-400" />
+            <h1 className="text-2xl font-bold text-slate-100 font-mono">BATCH NETWORK FLOW & PCAP ANALYSIS</h1>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Upload CSV network flow captures or raw .pcap/.pcapng capture files for feature extraction, bulk inference, and threat classification.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 bg-slate-800 p-1 rounded-xl border border-slate-700">
+          <button
+            onClick={() => setUploadFormat('csv')}
+            className={`px-3 py-1.5 text-xs font-mono rounded-lg transition ${
+              uploadFormat === 'csv' ? 'bg-cyan-600 text-slate-950 font-bold' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            CSV Flow Format
+          </button>
+          <button
+            onClick={() => setUploadFormat('pcap')}
+            className={`px-3 py-1.5 text-xs font-mono rounded-lg transition ${
+              uploadFormat === 'pcap' ? 'bg-cyan-600 text-slate-950 font-bold' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            PCAP / PCAPNG Raw
+          </button>
+        </div>
       </div>
 
       {/* Upload Dropzone */}
@@ -77,15 +94,17 @@ export const BatchAnalysisPage: React.FC<{ selectedDataset: string }> = ({ selec
             <UploadCloud className="w-12 h-12 text-cyan-400 animate-bounce" />
             <div>
               <p className="text-sm font-semibold text-slate-200 font-mono">
-                {file ? file.name : 'Select or Drop Network Capture CSV File'}
+                {file ? file.name : `Select or Drop ${uploadFormat.toUpperCase()} Capture File`}
               </p>
               <p className="text-xs text-slate-400 mt-1">
-                CSV files containing flow features for {selectedDataset.toUpperCase()} (Max size: 20MB)
+                {uploadFormat === 'csv'
+                  ? `CSV files containing flow features for ${selectedDataset.toUpperCase()} (Max: 50MB)`
+                  : 'Packet capture files (.pcap, .pcapng) for flow extraction (Max: 50MB)'}
               </p>
             </div>
             <input
               type="file"
-              accept=".csv"
+              accept={uploadFormat === 'csv' ? '.csv' : '.pcap,.pcapng'}
               onChange={handleFileChange}
               className="hidden"
               id="batch-file-input"
@@ -94,7 +113,7 @@ export const BatchAnalysisPage: React.FC<{ selectedDataset: string }> = ({ selec
               htmlFor="batch-file-input"
               className="cursor-pointer px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 text-xs font-mono font-medium rounded-lg transition"
             >
-              Browse CSV Files
+              Browse {uploadFormat.toUpperCase()} File
             </label>
           </div>
 
@@ -110,7 +129,7 @@ export const BatchAnalysisPage: React.FC<{ selectedDataset: string }> = ({ selec
               disabled={!file || loading}
               className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-slate-950 font-bold font-mono text-xs rounded-lg transition shadow-lg shadow-cyan-950/40"
             >
-              {loading ? 'PROCESSING BATCH CSV...' : 'PROCESS BATCH ANALYSIS'}
+              {loading ? 'ANALYZING NETWORK CAPTURE...' : `PROCESS ${uploadFormat.toUpperCase()} ANALYSIS`}
             </button>
           </div>
         </form>
@@ -119,45 +138,79 @@ export const BatchAnalysisPage: React.FC<{ selectedDataset: string }> = ({ selec
       {/* Summary Section */}
       {summary && (
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h3 className="text-sm font-bold text-slate-100 font-mono">Batch Telemetry Summary</h3>
-            <button
-              onClick={downloadCSV}
-              className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold font-mono text-xs rounded-lg transition shadow-lg shadow-emerald-950/40"
-            >
-              <Download className="w-4 h-4" />
-              <span>DOWNLOAD PREDICTION RESULTS CSV</span>
-            </button>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-slate-100 font-mono">Analysis Job: {jobResult.job_id}</h3>
+              <p className="text-xs text-slate-400">Processed under model pipeline: {selectedDataset.toUpperCase()}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleDownload('csv')}
+                className="flex items-center space-x-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold font-mono text-xs rounded-lg transition shadow-md shadow-emerald-950/40"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>EXPORT CSV</span>
+              </button>
+              <button
+                onClick={() => handleDownload('json')}
+                className="flex items-center space-x-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold font-mono text-xs rounded-lg transition shadow-md shadow-indigo-950/40"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>EXPORT JSON</span>
+              </button>
+            </div>
           </div>
 
           {/* Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard title="Total Flows Processed" value={summary.total_records} icon={FileText} color="indigo" />
-            <StatCard title="Attacks Detected" value={summary.attack_count} subtitle={`Benign: ${summary.benign_count}`} icon={ShieldAlert} color="red" />
-            <StatCard title="Attack Ratio" value={`${summary.attack_percentage}%`} icon={BarChart3} color="amber" />
-            <StatCard title="Critical/High Risks" value={summary.critical_risk_count + summary.high_risk_count} icon={AlertTriangle} color="cyan" />
+            <StatCard
+              title="Total Flows Processed"
+              value={summary.analyzed_rows || summary.analyzed_flows || 0}
+              icon={FileText}
+              color="indigo"
+            />
+            <StatCard
+              title="Attacks Detected"
+              value={summary.attack_count || 0}
+              subtitle={`Benign: ${summary.benign_count || 0}`}
+              icon={ShieldAlert}
+              color="red"
+            />
+            <StatCard
+              title="Attack Ratio"
+              value={`${summary.attack_percentage || 0}%`}
+              icon={BarChart3}
+              color="amber"
+            />
+            <StatCard
+              title="Average Risk Score"
+              value={summary.average_risk_score || 0}
+              subtitle="Calibrated 0-100"
+              icon={AlertTriangle}
+              color="cyan"
+            />
           </div>
 
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="cyber-card">
               <h4 className="text-xs font-semibold text-slate-200 font-mono mb-3">Batch Attack Classification</h4>
-              <AttackCategoryChart distribution={summary.category_distribution} />
+              <AttackCategoryChart distribution={summary.category_distribution || {}} />
             </div>
             <div className="cyber-card">
               <h4 className="text-xs font-semibold text-slate-200 font-mono mb-3">Batch Risk Distribution</h4>
-              <RiskDistributionChart distribution={summary.risk_level_distribution} />
+              <RiskDistributionChart distribution={summary.risk_distribution || summary.risk_level_distribution || {}} />
             </div>
           </div>
 
           {/* Table */}
           <div className="cyber-card">
-            <h4 className="text-xs font-semibold text-slate-200 font-mono mb-3">Sample Flow Records</h4>
+            <h4 className="text-xs font-semibold text-slate-200 font-mono mb-3">Sample Classified Flows</h4>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs font-mono">
                 <thead className="bg-[#1F2937]/70 text-slate-400 uppercase tracking-wider">
                   <tr>
-                    <th className="px-4 py-3">ID</th>
+                    <th className="px-4 py-3">Flow / Endpoint</th>
                     <th className="px-4 py-3">Prediction</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Risk Score</th>
@@ -166,9 +219,11 @@ export const BatchAnalysisPage: React.FC<{ selectedDataset: string }> = ({ selec
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {summary.sample_predictions.map(pred => (
-                    <tr key={pred.prediction_id} className="hover:bg-slate-800/40">
-                      <td className="px-4 py-3 text-slate-400">{pred.prediction_id}</td>
+                  {samplePredictions.map((pred: any) => (
+                    <tr key={pred.flow_id || pred.prediction_id} className="hover:bg-slate-800/40">
+                      <td className="px-4 py-3 text-slate-300">
+                        {pred.src_ip ? `${pred.src_ip}:${pred.src_port} → ${pred.dst_ip}:${pred.dst_port}` : pred.prediction_id}
+                      </td>
                       <td className="px-4 py-3 font-semibold text-slate-200">{pred.prediction}</td>
                       <td className="px-4 py-3">
                         <AttackBadge isAttack={pred.is_attack} prediction={pred.prediction} />

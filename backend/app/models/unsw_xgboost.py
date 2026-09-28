@@ -1,5 +1,5 @@
 import os
-import pickle
+import joblib
 import logging
 import numpy as np
 from app.core.config import settings
@@ -26,6 +26,7 @@ class UNSWXGBoostModelWrapper:
         self.binary_model = None
         self.rf_model = None
         self.multi_model = None
+        self.label_encoder = None
         self.features = UNSW_42_FEATURES
         self.classes = UNSW_ATTACK_CLASSES
         self.binary_loaded = False
@@ -36,8 +37,7 @@ class UNSWXGBoostModelWrapper:
     def _load(self):
         if os.path.exists(settings.UNSW_XGB_PATH):
             try:
-                with open(settings.UNSW_XGB_PATH, "rb") as f:
-                    self.binary_model = pickle.load(f)
+                self.binary_model = joblib.load(settings.UNSW_XGB_PATH)
                 self.binary_loaded = True
                 logger.info("Loaded UNSW-NB15 Binary XGBoost model.")
             except Exception as e:
@@ -45,8 +45,7 @@ class UNSWXGBoostModelWrapper:
 
         if os.path.exists(settings.UNSW_RF_PATH):
             try:
-                with open(settings.UNSW_RF_PATH, "rb") as f:
-                    self.rf_model = pickle.load(f)
+                self.rf_model = joblib.load(settings.UNSW_RF_PATH)
                 self.rf_loaded = True
                 logger.info("Loaded UNSW-NB15 Random Forest model.")
             except Exception as e:
@@ -54,12 +53,20 @@ class UNSWXGBoostModelWrapper:
 
         if os.path.exists(settings.UNSW_MULTI_PATH):
             try:
-                with open(settings.UNSW_MULTI_PATH, "rb") as f:
-                    self.multi_model = pickle.load(f)
+                self.multi_model = joblib.load(settings.UNSW_MULTI_PATH)
                 self.multi_loaded = True
                 logger.info("Loaded UNSW-NB15 Multiclass XGBoost model.")
             except Exception as e:
                 logger.error(f"Failed to load UNSW Multiclass model: {e}")
+
+        if os.path.exists(settings.UNSW_ENCODER_PATH):
+            try:
+                self.label_encoder = joblib.load(settings.UNSW_ENCODER_PATH)
+                if hasattr(self.label_encoder, "classes_"):
+                    self.classes = list(self.label_encoder.classes_)
+                logger.info("Loaded UNSW-NB15 Label Encoder.")
+            except Exception as e:
+                logger.error(f"Failed to load UNSW Label Encoder: {e}")
 
     def is_loaded(self) -> bool:
         return self.binary_loaded or self.rf_loaded or self.multi_loaded
@@ -70,23 +77,23 @@ class UNSWXGBoostModelWrapper:
         return self.binary_model.predict_proba(input_array)
 
     def predict_multi_probs(self, input_array: np.ndarray) -> np.ndarray:
-        if not self.multi_loaded or self.multi_model is None:
-            # Fallback if binary is loaded
-            if self.binary_loaded:
-                bin_probs = self.binary_model.predict_proba(input_array)
-                # Map binary prob to attack classes
-                results = []
-                for p in bin_probs:
-                    att_prob = float(p[1])
-                    if att_prob < 0.5:
-                        arr = np.zeros(len(self.classes))
-                        arr[6] = 1.0 # Normal
-                    else:
-                        arr = np.full(len(self.classes), att_prob / (len(self.classes) - 1))
-                        arr[6] = 1.0 - att_prob
-                    results.append(arr)
-                return np.array(results)
-            raise RuntimeError("UNSW-NB15 Multiclass model is not loaded.")
-        return self.multi_model.predict_proba(input_array)
+        if self.multi_loaded and self.multi_model is not None:
+            return self.multi_model.predict_proba(input_array)
+        if self.binary_loaded and self.binary_model is not None:
+            bin_probs = self.binary_model.predict_proba(input_array)
+            results = []
+            for p in bin_probs:
+                att_prob = float(p[1])
+                arr = np.zeros(len(self.classes))
+                norm_idx = self.classes.index("Normal") if "Normal" in self.classes else 6
+                arr[norm_idx] = 1.0 - att_prob
+                rem = att_prob / max(1, len(self.classes) - 1)
+                for i in range(len(self.classes)):
+                    if i != norm_idx:
+                        arr[i] = rem
+                results.append(arr)
+            return np.array(results)
+        raise RuntimeError("UNSW-NB15 Multiclass model is not loaded.")
 
 unsw_model_wrapper = UNSWXGBoostModelWrapper()
+

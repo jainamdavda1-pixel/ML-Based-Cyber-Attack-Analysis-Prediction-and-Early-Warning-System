@@ -1,5 +1,6 @@
 import logging
 from typing import Dict, Any, Optional
+from app.core.config import settings
 from app.ml.dataset_pipelines.cicids2017 import CICIDS2017Pipeline
 from app.ml.dataset_pipelines.unsw_nb15 import UNSWNB15Pipeline
 
@@ -26,15 +27,26 @@ class ModelRegistry:
                 "ready": self.cicids_pipeline.is_ready(),
                 "feature_count": len(self.cicids_pipeline.features),
                 "class_count": len(self.cicids_pipeline.classes),
-                "artifact_path": "model-artifacts/cicids2017/CICIDS_Multiclass_XGBoost.json"
+                "classes": self.cicids_pipeline.classes,
+                "model_type": "XGBoost Multiclass (Tree-based)",
+                "artifact_path": settings.CICIDS_MODEL_PATH
             },
             "unsw-nb15": {
                 "dataset_name": "UNSW-NB15",
                 "ready": self.unsw_pipeline.is_ready(),
                 "feature_count": len(self.unsw_pipeline.features),
                 "class_count": len(self.unsw_pipeline.classes),
-                "artifact_path": "model-artifacts/unsw-nb15/xgboost_cyberattack (1).pkl"
+                "classes": self.unsw_pipeline.classes,
+                "model_type": "XGBoost Binary + Multiclass",
+                "artifact_path": settings.UNSW_XGB_PATH
+            },
+            "lstm_temporal": {
+                "dataset_name": "Temporal LSTM",
+                "ready": False,
+                "status": "Untrained / Pending Chronological Sequence Weights",
+                "notes": "Requires chronological timestamps and temporal split training."
             }
         }
 
 model_registry = ModelRegistry()
+

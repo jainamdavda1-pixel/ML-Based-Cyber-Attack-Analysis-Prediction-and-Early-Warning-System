@@ -4,13 +4,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.database.connection import init_db
-from app.api.routes import health, prediction, risk, explainability, metrics, analysis
+from app.api.routes import health, prediction, risk, explainability, metrics, analysis, traffic, monitoring, incidents
+from app.services.live_collector import live_collector_service
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup database tables
     init_db()
     yield
+    # Graceful shutdown of live monitoring
+    live_collector_service.stop_monitoring()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -38,6 +41,9 @@ app.include_router(prediction.router, prefix=settings.API_V1_STR)
 app.include_router(risk.router, prefix=settings.API_V1_STR)
 app.include_router(explainability.router, prefix=settings.API_V1_STR)
 app.include_router(metrics.router, prefix=settings.API_V1_STR)
+app.include_router(traffic.router, prefix=settings.API_V1_STR)
+app.include_router(monitoring.router, prefix=settings.API_V1_STR)
+app.include_router(incidents.router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 def root():
@@ -46,3 +52,4 @@ def root():
         "docs": "/docs",
         "health": "/health"
     }
+

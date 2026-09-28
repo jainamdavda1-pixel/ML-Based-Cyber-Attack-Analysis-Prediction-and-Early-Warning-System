@@ -1,5 +1,5 @@
 import os
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 def resolve_artifact_path(base_dir: str, primary_filename: str) -> str:
     primary_path = os.path.join(base_dir, primary_filename)
@@ -15,6 +15,8 @@ def resolve_artifact_path(base_dir: str, primary_filename: str) -> str:
     return primary_path
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(case_sensitive=True, extra="ignore")
+
     PROJECT_NAME: str = "ML Cyber Attack Analysis, Prediction & Early Warning API"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
@@ -30,6 +32,14 @@ class Settings(BaseSettings):
     
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./cyber_security.db")
+    
+    # Uploads & Storage
+    UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "uploads"))
+    MAX_UPLOAD_SIZE_BYTES: int = 50 * 1024 * 1024  # 50 MB
+    
+    # Live Monitoring Settings
+    PERMITTED_INTERFACES: list[str] = ["en0", "eth0", "wlan0", "lo", "lo0", "any", "test0"]
+    MAX_LIVE_BUFFER_SIZE: int = 5000
     
     # Model Artifact Paths
     MODEL_DIR: str = os.getenv("MODEL_DIR", os.path.join(os.path.dirname(__file__), "..", "..", "..", "model-artifacts"))
@@ -61,7 +71,5 @@ class Settings(BaseSettings):
     # Risk Calibrated Threshold
     CICIDS_RISK_THRESHOLD: float = 0.94
 
-    class Config:
-        case_sensitive = True
-
 settings = Settings()
+

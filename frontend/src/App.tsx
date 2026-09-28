@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Sidebar } from './components/common/Sidebar';
 import { Navbar } from './components/common/Navbar';
 import { DashboardPage } from './pages/Dashboard';
+import { LiveMonitoringPage } from './pages/LiveMonitoring';
+import { IncidentsPage } from './pages/Incidents';
 import { DetectionPage } from './pages/Detection';
 import { BatchAnalysisPage } from './pages/BatchAnalysis';
 import { RiskPage } from './pages/Risk';
@@ -25,6 +27,8 @@ export function App() {
 
         <main className="flex-1 p-6 overflow-y-auto">
           {currentTab === 'dashboard' && <DashboardPage selectedDataset={selectedDataset} />}
+          {currentTab === 'monitoring' && <LiveMonitoringPage selectedDataset={selectedDataset} />}
+          {currentTab === 'incidents' && <IncidentsPage />}
           {currentTab === 'detection' && <DetectionPage selectedDataset={selectedDataset} />}
           {currentTab === 'batch' && <BatchAnalysisPage selectedDataset={selectedDataset} />}
           {currentTab === 'risk' && <RiskPage />}
@@ -39,3 +43,4 @@ export function App() {
 }
 
 export default App;
+

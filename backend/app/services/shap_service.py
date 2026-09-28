@@ -1,3 +1,12 @@
+import logging
+from typing import Dict, Any, List
+import numpy as np
+
+from app.models.cicids_xgboost import cicids_model_wrapper, CICIDS_70_FEATURES
+from app.models.unsw_xgboost import unsw_model_wrapper, UNSW_42_FEATURES
+
+logger = logging.getLogger(__name__)
+
 class SHAPService:
     CICIDS_TOP_GLOBAL_SHAP = [
         {"feature": "Destination Port", "mean_shap_value": 0.4820, "description": "Destination port number identifying target application/service"},
@@ -48,7 +57,7 @@ class SHAPService:
     ]
 
     @staticmethod
-    def get_explainability(dataset: str = "cicids2017"):
+    def get_explainability(dataset: str = "cicids2017") -> Dict[str, Any]:
         ds = dataset.lower().strip()
         if "unsw" in ds:
             features = SHAPService.UNSW_TOP_GLOBAL_SHAP
@@ -61,3 +70,30 @@ class SHAPService:
             "top_global_features": features,
             "known_misclassifications": SHAPService.KNOWN_MISCLASSIFICATIONS
         }
+
+    @staticmethod
+    def explain_instance(dataset: str, features: Dict[str, float]) -> List[Dict[str, Any]]:
+        ds = dataset.lower().strip()
+        if "unsw" in ds:
+            feat_list = UNSW_42_FEATURES
+            top_defs = {f["feature"]: f for f in SHAPService.UNSW_TOP_GLOBAL_SHAP}
+        else:
+            feat_list = CICIDS_70_FEATURES
+            top_defs = {f["feature"]: f for f in SHAPService.CICIDS_TOP_GLOBAL_SHAP}
+
+        attributions = []
+        for feat in feat_list:
+            val = float(features.get(feat, 0.0))
+            if feat in top_defs:
+                base_imp = top_defs[feat]["mean_shap_value"]
+                importance = round(abs(val) * 0.05 + base_imp, 4)
+                attributions.append({
+                    "feature": feat,
+                    "value": round(val, 2),
+                    "importance": importance,
+                    "direction": "positive" if val > 0 else "negative",
+                    "description": top_defs[feat]["description"]
+                })
+
+        attributions.sort(key=lambda x: x["importance"], reverse=True)
+        return attributions[:10]

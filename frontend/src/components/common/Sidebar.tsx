@@ -4,6 +4,8 @@ import {
   LayoutDashboard, 
   Crosshair, 
   UploadCloud, 
+  Radio,
+  FileSpreadsheet,
   AlertTriangle, 
   Cpu, 
   BarChart3, 
@@ -19,14 +21,17 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'monitoring', label: 'Live Monitoring', icon: Radio },
+    { id: 'incidents', label: 'Incidents & Triage', icon: ShieldAlert },
+    { id: 'batch', label: 'Batch & PCAP Analysis', icon: UploadCloud },
     { id: 'detection', label: 'Single Prediction', icon: Crosshair },
-    { id: 'batch', label: 'Batch Analysis', icon: UploadCloud },
     { id: 'risk', label: 'Risk & Early Warning', icon: AlertTriangle },
     { id: 'explainability', label: 'SHAP Explainability', icon: Cpu },
     { id: 'performance', label: 'Model Performance', icon: BarChart3 },
     { id: 'history', label: 'Prediction History', icon: History },
     { id: 'about', label: 'About & Methodology', icon: BookOpen },
   ];
+
 
   return (
     <aside className="w-64 bg-[#111827] border-r border-slate-800 flex flex-col min-h-screen">
