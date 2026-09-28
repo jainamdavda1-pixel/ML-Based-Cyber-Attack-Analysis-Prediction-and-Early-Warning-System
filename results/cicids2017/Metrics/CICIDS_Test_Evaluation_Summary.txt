@@ -1,0 +1,38 @@
+================================================================================
+CICIDS2017 MULTICLASS XGBOOST - TEST EVALUATION SUMMARY
+================================================================================
+
+EXPERIMENT STATUS
+--------------------------------------------------------------------------------
+Data preprocessing: COMPLETED
+Train/validation/test split: COMPLETED
+XGBoost training: COMPLETED
+Validation evaluation: COMPLETED
+Test evaluation: COMPLETED
+Attack-wise error analysis: COMPLETED
+SHAP explainability: NOT YET STARTED
+Risk scoring: NOT YET STARTED
+Early warning: NOT YET STARTED
+
+TEST SET METRICS
+--------------------------------------------------------------------------------
+Test samples: 383,203
+Accuracy: 0.998659
+Macro Precision: 0.921818
+Macro Recall: 0.920359
+Macro F1: 0.914891
+Weighted Precision: 0.998810
+Weighted Recall: 0.998659
+Weighted F1: 0.998701
+
+IMPORTANT ERROR PATTERNS
+--------------------------------------------------------------------------------
+1. Web Attack - XSS -> Web Attack - Brute Force: 57
+2. Web Attack - Brute Force -> Web Attack - XSS: 39
+3. BENIGN -> Bot: 165
+4. BENIGN -> PortScan: 163
+5. Infiltration -> BENIGN: 2
+
+NEXT EXPERIMENTAL STAGE
+--------------------------------------------------------------------------------
+SHAP explainability and feature-level analysis.

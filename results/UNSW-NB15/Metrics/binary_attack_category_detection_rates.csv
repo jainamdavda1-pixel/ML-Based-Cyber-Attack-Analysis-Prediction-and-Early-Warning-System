@@ -1,0 +1,10 @@
+attack_cat,Total_Attacks,Detected_Attacks,Detection_Rate,Missed_Attacks
+Backdoor,583,583,1.0,0
+Worms,44,44,1.0,0
+Generic,18871,18870,0.999947,1
+DoS,4089,4088,0.999755,1
+Reconnaissance,3496,3493,0.999142,3
+Exploits,11132,11076,0.994969,56
+Shellcode,378,376,0.994709,2
+Analysis,677,655,0.967504,22
+Fuzzers,6062,5386,0.888486,676

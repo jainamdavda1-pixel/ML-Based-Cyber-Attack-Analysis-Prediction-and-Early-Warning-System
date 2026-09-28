@@ -1,0 +1,26 @@
+actual,predicted,count
+BENIGN,Bot,165
+BENIGN,PortScan,163
+Web Attack - XSS,Web Attack - Brute Force,57
+Web Attack - Brute Force,Web Attack - XSS,39
+BENIGN,DoS Hulk,30
+BENIGN,DoS GoldenEye,12
+DoS Hulk,DoS GoldenEye,9
+BENIGN,DDoS,8
+BENIGN,DoS slowloris,5
+BENIGN,DoS Slowhttptest,4
+Bot,BENIGN,4
+DoS Slowhttptest,DoS slowloris,3
+Infiltration,BENIGN,2
+DoS GoldenEye,DoS Slowhttptest,2
+BENIGN,Web Attack - Brute Force,1
+BENIGN,Web Attack - XSS,1
+DoS Slowhttptest,Web Attack - Brute Force,1
+FTP-Patator,Web Attack - XSS,1
+DoS slowloris,PortScan,1
+DoS slowloris,DoS Slowhttptest,1
+PortScan,BENIGN,1
+PortScan,Web Attack - Brute Force,1
+PortScan,DoS Slowhttptest,1
+PortScan,Web Attack - XSS,1
+Web Attack - XSS,DoS slowloris,1

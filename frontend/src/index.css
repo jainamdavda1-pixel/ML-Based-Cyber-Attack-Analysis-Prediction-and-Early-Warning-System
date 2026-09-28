@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#0B0F19] text-slate-100 min-h-screen font-sans;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111827;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4B5563;
+}
+
+/* Glassmorphism Cards */
+.cyber-card {
+  @apply bg-[#111827]/80 backdrop-blur-md border border-slate-800/80 rounded-xl p-6 shadow-xl transition-all duration-200;
+}
+
+.cyber-card:hover {
+  @apply border-slate-700/80 shadow-cyan-950/20;
+}
+
+.cyber-input {
+  @apply bg-[#1F2937]/90 border border-slate-700 text-slate-100 rounded-lg px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-all font-mono;
+}

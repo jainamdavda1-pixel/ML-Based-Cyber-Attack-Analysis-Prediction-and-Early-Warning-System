@@ -1,0 +1,13 @@
+{
+    "dataset": "CICIDS2017",
+    "risk_definition": "P_Attack = 1 - P_BENIGN",
+    "risk_score_definition": "Risk_Score = P_Attack * 100",
+    "selected_threshold": 0.94,
+    "threshold_selection_basis": "Validation-set F1 with very high attack recall and low false-positive rate",
+    "validation_precision": 0.99503,
+    "validation_recall": 0.999781,
+    "validation_f1": 0.9974,
+    "validation_false_positive_rate": 0.000999,
+    "validation_false_negatives": 14,
+    "validation_false_positives": 319
+}

@@ -1,0 +1,19 @@
+{
+    "dataset": "CICIDS2017",
+    "evaluation_set": "Held-out test set",
+    "test_samples": 383203,
+    "selected_threshold": 0.94,
+    "precision": 0.9947659475036996,
+    "recall": 0.9996399611784227,
+    "f1_score": 0.9971969986804813,
+    "accuracy": 0.9990631597351796,
+    "false_positive_rate": 0.0010522327062736244,
+    "false_negative_rate": 0.0003600388215772831,
+    "TN": 318985,
+    "FP": 336,
+    "FN": 23,
+    "TP": 63859,
+    "risk_definition": "P_Attack = 1 - P_BENIGN",
+    "risk_score_definition": "Risk_Score = P_Attack * 100",
+    "early_warning_definition": "Early warning is triggered when P_Attack >= selected threshold"
+}

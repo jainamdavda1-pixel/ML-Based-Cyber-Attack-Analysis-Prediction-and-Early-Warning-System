@@ -1,0 +1,6 @@
+Metric,Baseline XGBoost,Optimized XGBoost
+Accuracy,0.873585,0.872383
+Precision,0.82207,0.82146
+Recall,0.983213,0.981558
+F1 Score,0.89545,0.894401
+ROC-AUC,0.983548,0.983296

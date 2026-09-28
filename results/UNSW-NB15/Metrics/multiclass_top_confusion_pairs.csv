@@ -1,0 +1,16 @@
+Actual,Predicted,Count
+Normal,Fuzzers,7491
+DoS,Exploits,2543
+Fuzzers,Exploits,991
+Fuzzers,Normal,877
+DoS,Backdoor,721
+Normal,Exploits,711
+Exploits,Backdoor,703
+Normal,Analysis,512
+Reconnaissance,Exploits,501
+Generic,Exploits,428
+Analysis,Exploits,412
+Backdoor,Exploits,348
+Exploits,Analysis,301
+DoS,Analysis,206
+Fuzzers,Shellcode,203

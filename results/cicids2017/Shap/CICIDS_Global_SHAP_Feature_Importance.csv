@@ -1,0 +1,71 @@
+Rank,Feature,Mean_Absolute_SHAP
+1,Destination Port,1.1343601
+2,Init_Win_bytes_backward,0.65564716
+3,Init_Win_bytes_forward,0.39516267
+4,min_seg_size_forward,0.35255092
+5,Fwd IAT Min,0.2788734
+6,Flow IAT Min,0.2659529
+7,Bwd Packets/s,0.26090467
+8,Flow Duration,0.21630271
+9,Avg Bwd Segment Size,0.18963063
+10,Flow IAT Mean,0.1602605
+11,Flow Bytes/s,0.15015933
+12,Bwd Packet Length Max,0.1486734
+13,Fwd Packet Length Max,0.14511241
+14,Fwd IAT Std,0.13870226
+15,Fwd IAT Mean,0.13610339
+16,Bwd Header Length,0.12101647
+17,Bwd Packet Length Min,0.11804443
+18,Fwd Packet Length Std,0.11411962
+19,Flow IAT Max,0.11255345
+20,Flow IAT Std,0.11013853
+21,Avg Fwd Segment Size,0.10764236
+22,Fwd Header Length,0.10763315
+23,Fwd IAT Total,0.10359054
+24,PSH Flag Count,0.0990753
+25,Fwd IAT Max,0.09329963
+26,Subflow Fwd Bytes,0.089306265
+27,Flow Packets/s,0.087875
+28,Fwd Packets/s,0.08365578
+29,Packet Length Mean,0.082354486
+30,Min Packet Length,0.08081463
+31,URG Flag Count,0.07430213
+32,Max Packet Length,0.07237547
+33,Bwd Packet Length Std,0.07075841
+34,Subflow Bwd Bytes,0.064847566
+35,Bwd IAT Std,0.06385928
+36,Average Packet Size,0.06185332
+37,Bwd IAT Min,0.05707536
+38,Subflow Bwd Packets,0.05396786
+39,Down/Up Ratio,0.046706825
+40,Bwd IAT Mean,0.044266462
+41,Active Min,0.043833677
+42,Idle Min,0.03930931
+43,ACK Flag Count,0.038762107
+44,act_data_pkt_fwd,0.036932196
+45,Idle Mean,0.033674896
+46,Packet Length Std,0.03340426
+47,Fwd Header Length.1,0.03338162
+48,Subflow Fwd Packets,0.03272811
+49,Bwd IAT Max,0.024215149
+50,Fwd Packet Length Min,0.023622744
+51,Fwd Packet Length Mean,0.022122059
+52,Bwd Packet Length Mean,0.020942576
+53,Total Length of Fwd Packets,0.016307691
+54,Total Length of Bwd Packets,0.015866037
+55,Bwd IAT Total,0.012330486
+56,FIN Flag Count,0.012028452
+57,Packet Length Variance,0.009832387
+58,Idle Max,0.009307445
+59,Active Max,0.008871777
+60,Fwd PSH Flags,0.008833166
+61,Total Fwd Packets,0.007069367
+62,Active Mean,0.006973868
+63,Total Backward Packets,0.0050438545
+64,Active Std,0.004235802
+65,SYN Flag Count,0.0015987622
+66,Idle Std,0.0010106651
+67,ECE Flag Count,0.0
+68,CWE Flag Count,0.0
+69,Fwd URG Flags,0.0
+70,RST Flag Count,0.0

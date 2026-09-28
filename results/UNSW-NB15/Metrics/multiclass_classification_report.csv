@@ -1,0 +1,11 @@
+class,precision,recall,f1_score,support
+Analysis,0.07,0.14,0.09,677
+Backdoor,0.05,0.15,0.07,583
+DoS,0.57,0.1,0.18,4089
+Exploits,0.61,0.85,0.71,11132
+Fuzzers,0.31,0.58,0.4,6062
+Generic,1.0,0.97,0.98,18871
+Normal,0.96,0.76,0.85,37000
+Reconnaissance,0.93,0.81,0.87,3496
+Shellcode,0.37,0.82,0.51,378
+Worms,0.68,0.43,0.53,44

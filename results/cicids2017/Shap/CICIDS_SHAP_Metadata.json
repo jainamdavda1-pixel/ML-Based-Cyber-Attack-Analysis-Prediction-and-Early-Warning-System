@@ -1,0 +1,15 @@
+{
+    "shap_samples": 10000,
+    "features": 70,
+    "classes": 15,
+    "shap_shape": [
+        10000,
+        70,
+        15
+    ],
+    "random_state": 42,
+    "model": "CICIDS_Multiclass_XGBoost",
+    "dataset": "CICIDS2017",
+    "analysis_type": "Multiclass TreeSHAP",
+    "aggregation_for_global_importance": "mean_absolute_SHAP_across_samples_and_classes"
+}

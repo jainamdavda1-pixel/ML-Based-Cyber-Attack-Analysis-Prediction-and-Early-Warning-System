@@ -1,0 +1,26 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: deployment/docker/Dockerfile.backend
+    container_name: cyber_attack_backend
+    ports:
+      - "8090:8090"
+    environment:
+      DATABASE_URL: "sqlite:////data/cyber_security.db"
+    volumes:
+      - ./model-artifacts:/app/model-artifacts:ro
+      - backend_data:/data
+
+  frontend:
+    build:
+      context: .
+      dockerfile: deployment/docker/Dockerfile.frontend
+    container_name: cyber_attack_frontend
+    ports:
+      - "5180:80"
+    depends_on:
+      - backend
+
+volumes:
+  backend_data:
