@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.database.connection import init_db
-from app.api.routes import health, prediction, risk, explainability, metrics, analysis, traffic, monitoring, incidents
+from app.api.routes import health, prediction, risk, explainability, metrics, analysis, traffic, monitoring, incidents, compatibility
 from app.services.live_collector import live_collector_service
 
 @asynccontextmanager
@@ -44,6 +44,7 @@ app.include_router(metrics.router, prefix=settings.API_V1_STR)
 app.include_router(traffic.router, prefix=settings.API_V1_STR)
 app.include_router(monitoring.router, prefix=settings.API_V1_STR)
 app.include_router(incidents.router, prefix=settings.API_V1_STR)
+app.include_router(compatibility.router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 def root():

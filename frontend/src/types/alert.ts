@@ -12,11 +12,16 @@ export interface AlertItem {
 }
 
 export interface DashboardSummary {
+  dataset?: string;
   total_analyzed: number;
   attacks_detected: number;
   attack_percentage: number;
   average_risk_score: number;
+  low_risk_count?: number;
+  moderate_risk_count?: number;
   high_risk_count: number;
   critical_risk_count: number;
+  risk_distribution?: Record<string, number>;
+  category_distribution?: Record<string, number>;
   recent_alerts: AlertItem[];
 }

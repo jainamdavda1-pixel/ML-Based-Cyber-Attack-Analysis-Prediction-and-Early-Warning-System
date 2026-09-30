@@ -6,10 +6,11 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models.cicids_xgboost import cicids_model_wrapper, CICIDS_70_FEATURES, CICIDS_CLASSES
-from app.models.unsw_xgboost import unsw_model_wrapper, UNSW_42_FEATURES, UNSW_ATTACK_CLASSES
+from app.ml.registry_metadata import CICIDS_70_FEATURES, CICIDS_CLASSES, UNSW_42_FEATURES, UNSW_ATTACK_CLASSES
+from app.models.cicids_xgboost import cicids_model_wrapper
+from app.models.unsw_xgboost import unsw_model_wrapper
 from app.services.risk_service import RiskService
-from app.database.repositories import FlowRepository, IncidentRepository, PredictionRepository
+from app.database.repositories import FlowRepository, IncidentRepository
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,6 @@ class SharedPipelineService:
         dataset_norm = "unsw-nb15" if "unsw" in dataset.lower() else "cicids2017"
         results = []
 
-        # Prepare feature matrices
         if dataset_norm == "cicids2017":
             feature_keys = CICIDS_70_FEATURES
             model_wrapper = cicids_model_wrapper
@@ -46,28 +46,63 @@ class SharedPipelineService:
             model_wrapper = unsw_model_wrapper
             classes = UNSW_ATTACK_CLASSES
 
-        # Build feature rows
+        if not model_wrapper.is_loaded():
+            raise RuntimeError(f"Model artifact for {dataset_norm.upper()} is not loaded or configured.")
+
+        # Build feature rows with strict feature extraction
         matrix_rows = []
+        valid_flows = []
+        rejected_flows = []
+
         for f in flows:
             feat_map = f.get("features", f)
-            row = [float(feat_map.get(k, 0.0)) for k in feature_keys]
+            
+            # Check for case-insensitive feature match
+            feat_map_lower = {str(k).strip().lower(): v for k, v in feat_map.items()}
+            
+            row = []
+            missing_for_flow = []
+            for k in feature_keys:
+                if k in feat_map:
+                    val = feat_map[k]
+                elif k.lower() in feat_map_lower:
+                    val = feat_map_lower[k.lower()]
+                else:
+                    missing_for_flow.append(k)
+                    val = 0.0
+                
+                try:
+                    num_val = float(val)
+                    if np.isinf(num_val) or np.isnan(num_val):
+                        num_val = 0.0
+                except (ValueError, TypeError):
+                    num_val = 0.0
+                row.append(num_val)
+
+            # If more than 20% of required features are missing from a flow, mark as rejected
+            if len(missing_for_flow) > 0.2 * len(feature_keys):
+                rejected_flows.append(f)
+                continue
+
             matrix_rows.append(row)
+            valid_flows.append(f)
+
+        if not valid_flows:
+            if rejected_flows:
+                raise ValueError(f"All {len(rejected_flows)} input records lack required {dataset_norm.upper()} features and were rejected to prevent inaccurate predictions.")
+            return []
 
         X = np.array(matrix_rows, dtype=np.float32)
 
         # Run inference
         if dataset_norm == "cicids2017":
-            if not model_wrapper.is_loaded():
-                raise RuntimeError("CICIDS2017 model artifact is not loaded or configured.")
             all_probs = model_wrapper.predict_features(X)
         else:
-            if not model_wrapper.is_loaded():
-                raise RuntimeError("UNSW-NB15 model artifact is not loaded or configured.")
             all_probs = model_wrapper.predict_multi_probs(X)
 
         processed_flow_objects = []
 
-        for i, f in enumerate(flows):
+        for i, f in enumerate(valid_flows):
             probs = all_probs[i]
             top_idx = int(np.argmax(probs))
             predicted_class = classes[top_idx] if top_idx < len(classes) else str(top_idx)

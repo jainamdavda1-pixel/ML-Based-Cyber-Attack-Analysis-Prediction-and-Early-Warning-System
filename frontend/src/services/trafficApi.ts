@@ -5,6 +5,9 @@ export const trafficApi = {
   uploadTrafficFile: (formData: FormData) =>
     uploadFileApi<any>('/traffic/upload', formData),
 
+  profileCsvFile: (formData: FormData) =>
+    uploadFileApi<any>('/compatibility/profile', formData),
+
   listJobs: () =>
     fetchApi<AnalysisJob[]>('/traffic/jobs'),
 

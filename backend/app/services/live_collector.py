@@ -10,15 +10,16 @@ from app.core.config import settings
 from app.database.connection import SessionLocal
 from app.database.repositories import MonitoringRepository
 from app.services.shared_pipeline import SharedPipelineService
-from app.services.traffic_parser import TrafficParserService
+from app.services.flow_aggregator import CanonicalFlowAggregator
 
 logger = logging.getLogger(__name__)
 
 class LiveCollectorService:
     """
     Background passive network traffic collector.
-    Captures live packets from permitted network interfaces, aggregates them
-    into flows, runs ML classification via SharedPipeline, and tracks real-time statistics.
+    Captures live packets on permitted network interfaces, aggregates them
+    statefully into bidirectional flows using CanonicalFlowAggregator,
+    performs ML inference on completed/mature flows, and records telemetry.
     """
 
     def __init__(self):
@@ -29,11 +30,12 @@ class LiveCollectorService:
         self._session_id: Optional[str] = None
         self._start_time: Optional[float] = None
         
-        # Bounded buffers
+        # Bounded flow buffers
         self._recent_flows = deque(maxlen=200)
         self._total_packets = 0
         self._total_flows = 0
         self._total_attacks = 0
+        self._rejected_flows = 0
         self._last_error: Optional[str] = None
         self._lock = threading.Lock()
 
@@ -51,6 +53,7 @@ class LiveCollectorService:
                 "total_packets": self._total_packets,
                 "total_flows": self._total_flows,
                 "total_attacks": self._total_attacks,
+                "rejected_flows": self._rejected_flows,
                 "last_error": self._last_error,
                 "permitted_interfaces": settings.PERMITTED_INTERFACES
             }
@@ -75,6 +78,7 @@ class LiveCollectorService:
             self._total_packets = 0
             self._total_flows = 0
             self._total_attacks = 0
+            self._rejected_flows = 0
             self._last_error = None
             self._session_id = f"mon-{uuid.uuid4().hex[:10]}"
 
@@ -87,7 +91,7 @@ class LiveCollectorService:
         finally:
             db.close()
 
-        # Start capture worker thread
+        # Start background capture worker thread
         self._thread = threading.Thread(
             target=self._capture_worker,
             args=(interface, dataset, self._session_id),
@@ -116,7 +120,6 @@ class LiveCollectorService:
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=2.0)
 
-        # Update DB session
         db = SessionLocal()
         try:
             if sess_id:
@@ -135,75 +138,83 @@ class LiveCollectorService:
         }
 
     def _capture_worker(self, interface: str, dataset: str, session_id: str):
-        logger.info(f"Starting live network capture on interface {interface}")
+        logger.info(f"Starting stateful live network capture on interface {interface} for dataset {dataset}")
 
-        # If test interface or loopback simulation
         if interface == "test0":
             self._run_simulated_capture(dataset, session_id)
             return
 
         try:
-            from scapy.all import sniff, IP, TCP, UDP
+            from scapy.all import sniff, IP, IPv6, TCP, UDP, ICMP
             
+            aggregator = CanonicalFlowAggregator(flow_timeout_seconds=10.0, max_active_flows=5000)
+            last_expire_check = time.time()
+
             def packet_handler(pkt):
+                nonlocal last_expire_check
                 if self._stop_event.is_set():
                     return
+
                 with self._lock:
                     self._total_packets += 1
 
-                # Construct single packet flow feature approximation
-                if pkt.haslayer(IP):
-                    ip = pkt[IP]
-                    src_ip = ip.src
-                    dst_ip = ip.dst
-                    src_port = int(pkt[TCP].sport) if pkt.haslayer(TCP) else (int(pkt[UDP].sport) if pkt.haslayer(UDP) else 0)
-                    dst_port = int(pkt[TCP].dport) if pkt.haslayer(TCP) else (int(pkt[UDP].dport) if pkt.haslayer(UDP) else 0)
-                    proto = "TCP" if pkt.haslayer(TCP) else ("UDP" if pkt.haslayer(UDP) else "OTHER")
+                if not (pkt.haslayer(IP) or pkt.haslayer(IPv6)):
+                    return
 
-                    flow_raw = {
-                        "src_ip": src_ip,
-                        "dst_ip": dst_ip,
-                        "src_port": src_port,
-                        "dst_port": dst_port,
-                        "protocol": proto,
-                        "start_time": time.time(),
-                        "end_time": time.time(),
-                        "fwd_packets": [len(pkt)],
-                        "bwd_packets": [],
-                        "fwd_times": [time.time()],
-                        "bwd_times": [],
-                        "all_times": [time.time()],
-                        "fwd_flags": [int(pkt[TCP].flags)] if pkt.haslayer(TCP) else [0],
-                        "bwd_flags": [],
-                        "fwd_win": int(pkt[TCP].window) if pkt.haslayer(TCP) else 0,
-                        "bwd_win": 0,
-                        "fwd_header_len": len(pkt[TCP]) if pkt.haslayer(TCP) else 0,
-                        "bwd_header_len": 0
-                    }
+                ip = pkt[IP] if pkt.haslayer(IP) else pkt[IPv6]
+                src_ip = ip.src
+                dst_ip = ip.dst
+                proto = "TCP" if pkt.haslayer(TCP) else ("UDP" if pkt.haslayer(UDP) else ("ICMP" if pkt.haslayer(ICMP) else "OTHER"))
 
-                    flow_feat = TrafficParserService._compute_flow_features(flow_raw)
+                src_port = 0
+                dst_port = 0
+                tcp_flags = 0
+                win_size = 0
+                header_len = 0
 
-                    # Process in batch of 1
-                    db = SessionLocal()
-                    try:
-                        res = SharedPipelineService.process_flow_batch(
-                            db=db,
-                            flows=[flow_feat],
-                            dataset=dataset,
-                            session_id=session_id,
-                            source_type="live",
-                            persist=True
-                        )
-                        if res:
-                            with self._lock:
-                                self._total_flows += 1
-                                if res[0]["is_attack"]:
-                                    self._total_attacks += 1
-                                self._recent_flows.append(res[0])
-                    except Exception as err:
-                        logger.error(f"Inference error in live worker: {err}")
-                    finally:
-                        db.close()
+                if pkt.haslayer(TCP):
+                    tcp = pkt[TCP]
+                    src_port = int(tcp.sport)
+                    dst_port = int(tcp.dport)
+                    tcp_flags = int(tcp.flags)
+                    win_size = int(tcp.window)
+                    header_len = len(tcp)
+                elif pkt.haslayer(UDP):
+                    udp = pkt[UDP]
+                    src_port = int(udp.sport)
+                    dst_port = int(udp.dport)
+                    header_len = 8
+
+                pkt_time = float(pkt.time)
+                pkt_len = len(pkt)
+
+                completed_flow, is_term = aggregator.ingest_packet(
+                    src_ip=src_ip,
+                    dst_ip=dst_ip,
+                    src_port=src_port,
+                    dst_port=dst_port,
+                    proto=proto,
+                    pkt_len=pkt_len,
+                    pkt_time=pkt_time,
+                    tcp_flags=tcp_flags,
+                    win_size=win_size,
+                    header_len=header_len
+                )
+
+                ready_flows = []
+                if is_term and completed_flow:
+                    ready_flows.append(completed_flow)
+
+                # Periodically expire inactive flows every 2 seconds
+                now = time.time()
+                if now - last_expire_check >= 2.0:
+                    expired = aggregator.expire_inactive_flows(now)
+                    if expired:
+                        ready_flows.extend(expired)
+                    last_expire_check = now
+
+                if ready_flows:
+                    self._process_flows(ready_flows, dataset, session_id)
 
             sniff(
                 iface=interface if interface != "any" else None,
@@ -213,8 +224,13 @@ class LiveCollectorService:
                 timeout=None
             )
 
-        except PermissionError as pe:
-            err_msg = f"Insufficient OS permissions for live packet capture on '{interface}'. Root/Administrator privileges required."
+            # Drain on stop
+            remaining = aggregator.drain_all_flows()
+            if remaining:
+                self._process_flows(remaining, dataset, session_id)
+
+        except PermissionError:
+            err_msg = f"Insufficient OS permissions for live packet capture on '{interface}'. Passive monitoring requires elevated packet capture privileges."
             logger.error(err_msg)
             with self._lock:
                 self._last_error = err_msg
@@ -226,67 +242,64 @@ class LiveCollectorService:
                 self._last_error = err_msg
                 self._running = False
 
+    def _process_flows(self, flows: List[Dict[str, Any]], dataset: str, session_id: str):
+        db = SessionLocal()
+        try:
+            res = SharedPipelineService.process_flow_batch(
+                db=db,
+                flows=flows,
+                dataset=dataset,
+                session_id=session_id,
+                source_type="live",
+                persist=True
+            )
+            if res:
+                with self._lock:
+                    for r in res:
+                        self._total_flows += 1
+                        if r.get("is_attack"):
+                            self._total_attacks += 1
+                        self._recent_flows.append(r)
+        except Exception as err:
+            logger.error(f"Inference error in live worker: {err}")
+        finally:
+            db.close()
+
     def _run_simulated_capture(self, dataset: str, session_id: str):
-        """Generates benign and test attack packets for testing without root socket permissions."""
-        logger.info("Running test network monitoring simulation")
+        """Generates realistic bidirectional flows for simulated testing."""
+        logger.info("Running test network monitoring simulation with CanonicalFlowAggregator")
         import random
         
-        sample_ips = [
+        sample_endpoints = [
             ("192.168.1.45", "10.0.0.1", 443, "TCP"),
             ("192.168.1.102", "192.168.1.1", 53, "UDP"),
             ("172.16.0.15", "10.0.0.5", 80, "TCP"),
             ("10.0.0.22", "10.0.0.1", 22, "TCP")
         ]
 
+        aggregator = CanonicalFlowAggregator(flow_timeout_seconds=2.0, max_active_flows=100)
+
         while not self._stop_event.is_set():
             time.sleep(1.0)
-            src_ip, dst_ip, dport, proto = random.choice(sample_ips)
+            src_ip, dst_ip, dport, proto = random.choice(sample_endpoints)
             sport = random.randint(1024, 65535)
+            now = time.time()
+
+            # Simulate forward handshake packet
+            aggregator.ingest_packet(src_ip, dst_ip, sport, dport, proto, 64, now, tcp_flags=2, win_size=65535, header_len=40)
+            # Simulate backward handshake ACK packet
+            aggregator.ingest_packet(dst_ip, src_ip, dport, sport, proto, 64, now + 0.01, tcp_flags=18, win_size=65535, header_len=40)
+            # Simulate data packet forward
+            aggregator.ingest_packet(src_ip, dst_ip, sport, dport, proto, random.randint(120, 1400), now + 0.05, tcp_flags=24, win_size=65535, header_len=40)
+            # Simulate data packet backward
+            aggregator.ingest_packet(dst_ip, src_ip, dport, sport, proto, random.randint(120, 1400), now + 0.08, tcp_flags=24, win_size=65535, header_len=40)
+            # Terminate flow with FIN
+            flow_feat, is_term = aggregator.ingest_packet(src_ip, dst_ip, sport, dport, proto, 64, now + 0.12, tcp_flags=17, win_size=65535, header_len=40)
 
             with self._lock:
-                self._total_packets += random.randint(5, 20)
+                self._total_packets += 5
 
-            flow_raw = {
-                "src_ip": src_ip,
-                "dst_ip": dst_ip,
-                "src_port": sport,
-                "dst_port": dport,
-                "protocol": proto,
-                "start_time": time.time() - 0.5,
-                "end_time": time.time(),
-                "fwd_packets": [random.randint(64, 1400) for _ in range(random.randint(2, 6))],
-                "bwd_packets": [random.randint(64, 1400) for _ in range(random.randint(2, 6))],
-                "fwd_times": [time.time() - 0.3, time.time() - 0.1],
-                "bwd_times": [time.time() - 0.2, time.time()],
-                "all_times": [time.time() - 0.3, time.time() - 0.2, time.time() - 0.1, time.time()],
-                "fwd_flags": [2, 16],
-                "bwd_flags": [18, 16],
-                "fwd_win": 65535,
-                "bwd_win": 65535,
-                "fwd_header_len": 40,
-                "bwd_header_len": 40
-            }
-
-            flow_feat = TrafficParserService._compute_flow_features(flow_raw)
-            db = SessionLocal()
-            try:
-                res = SharedPipelineService.process_flow_batch(
-                    db=db,
-                    flows=[flow_feat],
-                    dataset=dataset,
-                    session_id=session_id,
-                    source_type="live",
-                    persist=True
-                )
-                if res:
-                    with self._lock:
-                        self._total_flows += 1
-                        if res[0]["is_attack"]:
-                            self._total_attacks += 1
-                        self._recent_flows.append(res[0])
-            except Exception as err:
-                logger.error(f"Error in simulated capture: {err}")
-            finally:
-                db.close()
+            if is_term and flow_feat:
+                self._process_flows([flow_feat], dataset, session_id)
 
 live_collector_service = LiveCollectorService()

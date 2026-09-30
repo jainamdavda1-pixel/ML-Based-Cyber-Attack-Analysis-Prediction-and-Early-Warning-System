@@ -51,44 +51,76 @@ class PredictionRepository:
 
     @staticmethod
     def get_dashboard_summary(db: Session, dataset: str = None):
-        base_query = db.query(PredictionRecord)
-        if dataset:
-            ds = "UNSW-NB15" if "unsw" in dataset.lower() else "CICIDS2017"
-            base_query = base_query.filter(PredictionRecord.dataset == ds)
-
-        total = base_query.count()
-        attacks = base_query.filter(PredictionRecord.is_attack == True).count()
-        high_risk = base_query.filter(PredictionRecord.risk_level == "High").count()
-        critical_risk = base_query.filter(PredictionRecord.risk_level == "Critical").count()
+        ds = "UNSW-NB15" if dataset and "unsw" in dataset.lower() else "CICIDS2017"
         
-        avg_risk = 0.0
-        if total > 0:
-            records = base_query.with_entities(PredictionRecord.risk_score).all()
-            avg_risk = sum(r[0] for r in records if r[0] is not None) / total
-
-        recent_alerts = base_query.order_by(PredictionRecord.timestamp.desc()).limit(10).all()
-
+        pred_records = db.query(PredictionRecord).filter(PredictionRecord.dataset == ds).all()
+        flow_records = db.query(FlowRecord).filter(FlowRecord.dataset == ds).all()
+        
+        total = len(pred_records) + len(flow_records)
+        attacks = sum(1 for r in pred_records if r.is_attack) + sum(1 for r in flow_records if r.is_attack)
+        
+        risk_dist = {"Low": 0, "Moderate": 0, "High": 0, "Critical": 0}
+        cat_dist = {}
+        sum_risk = 0.0
+        
+        for r in pred_records:
+            rl = r.risk_level or "Low"
+            risk_dist[rl] = risk_dist.get(rl, 0) + 1
+            cat = r.prediction or ("Normal" if "unsw" in ds.lower() else "BENIGN")
+            cat_dist[cat] = cat_dist.get(cat, 0) + 1
+            sum_risk += (r.risk_score or 0.0)
+            
+        for r in flow_records:
+            rl = r.risk_level or "Low"
+            risk_dist[rl] = risk_dist.get(rl, 0) + 1
+            cat = r.prediction or ("Normal" if "unsw" in ds.lower() else "BENIGN")
+            cat_dist[cat] = cat_dist.get(cat, 0) + 1
+            sum_risk += (r.risk_score or 0.0)
+            
+        avg_risk = round(sum_risk / total, 2) if total > 0 else 0.0
+        
+        combined_alerts = []
+        for r in pred_records:
+            combined_alerts.append({
+                "prediction_id": r.prediction_id,
+                "timestamp": r.timestamp.isoformat() if r.timestamp else datetime.now(timezone.utc).isoformat(),
+                "dataset": r.dataset,
+                "prediction": r.prediction,
+                "is_attack": r.is_attack,
+                "risk_score": r.risk_score,
+                "risk_level": r.risk_level,
+                "confidence": r.confidence,
+                "input_source": r.input_source or "manual"
+            })
+        for r in flow_records:
+            combined_alerts.append({
+                "prediction_id": r.flow_id,
+                "timestamp": r.timestamp.isoformat() if r.timestamp else datetime.now(timezone.utc).isoformat(),
+                "dataset": r.dataset,
+                "prediction": r.prediction,
+                "is_attack": r.is_attack,
+                "risk_score": r.risk_score,
+                "risk_level": r.risk_level,
+                "confidence": r.confidence,
+                "input_source": r.source_type or "flow"
+            })
+            
+        combined_alerts.sort(key=lambda x: x["timestamp"], reverse=True)
+        recent_alerts = combined_alerts[:15]
+        
         return {
+            "dataset": ds,
             "total_analyzed": total,
             "attacks_detected": attacks,
             "attack_percentage": round((attacks / total * 100), 2) if total > 0 else 0.0,
-            "average_risk_score": round(avg_risk, 2),
-            "high_risk_count": high_risk,
-            "critical_risk_count": critical_risk,
-            "recent_alerts": [
-                {
-                    "prediction_id": r.prediction_id,
-                    "timestamp": r.timestamp.isoformat() if r.timestamp else "",
-                    "dataset": r.dataset,
-                    "prediction": r.prediction,
-                    "is_attack": r.is_attack,
-                    "risk_score": r.risk_score,
-                    "risk_level": r.risk_level,
-                    "confidence": r.confidence,
-                    "input_source": r.input_source
-                }
-                for r in recent_alerts
-            ]
+            "average_risk_score": avg_risk,
+            "low_risk_count": risk_dist.get("Low", 0),
+            "moderate_risk_count": risk_dist.get("Moderate", 0),
+            "high_risk_count": risk_dist.get("High", 0),
+            "critical_risk_count": risk_dist.get("Critical", 0),
+            "risk_distribution": risk_dist,
+            "category_distribution": cat_dist,
+            "recent_alerts": recent_alerts
         }
 
 class JobRepository:

@@ -1,28 +1,19 @@
 import os
 import joblib
 import logging
+from typing import Tuple, List, Dict, Any
 import numpy as np
 import pandas as pd
 from app.core.config import settings
+from app.ml.registry_metadata import UNSW_42_FEATURES, UNSW_ATTACK_CLASSES
 
 logger = logging.getLogger(__name__)
 
-UNSW_42_FEATURES = [
-    'dur', 'proto', 'service', 'state', 'spkts', 'dpkts', 'sbytes', 'dbytes',
-    'rate', 'sttl', 'dttl', 'sload', 'dload', 'sloss', 'dloss', 'sinpkt',
-    'dinpkt', 'sjit', 'djit', 'swin', 'stcpb', 'dtcpb', 'dwin', 'tcprtt',
-    'synack', 'ackdat', 'smean', 'dmean', 'trans_depth', 'response_body_len',
-    'ct_srv_src', 'ct_state_ttl', 'ct_dst_ltm', 'ct_src_dport_ltm',
-    'ct_dst_sport_ltm', 'ct_dst_src_ltm', 'is_ftp_login', 'ct_ftp_cmd',
-    'ct_flw_http_mthd', 'ct_src_ltm', 'ct_srv_dst', 'is_sm_ips_ports'
-]
-
-UNSW_ATTACK_CLASSES = [
-    'Analysis', 'Backdoor', 'DoS', 'Exploits', 'Fuzzers',
-    'Generic', 'Normal', 'Reconnaissance', 'Shellcode', 'Worms'
-]
-
 class UNSWNB15Pipeline:
+    """
+    Inference pipeline for UNSW-NB15 42-feature Binary & Multiclass XGBoost models.
+    Enforces strict feature validation and eliminates silent zero-filling.
+    """
     def __init__(self):
         self.dataset_name = "UNSW-NB15"
         self.features = UNSW_42_FEATURES
@@ -61,13 +52,28 @@ class UNSWNB15Pipeline:
     def is_ready(self) -> bool:
         return self.loaded and (self.binary_model is not None or self.multi_model is not None)
 
+    def validate_features(self, df: pd.DataFrame) -> Tuple[bool, List[str]]:
+        df_cols_map = {str(c).strip().lower(): str(c).strip() for c in df.columns}
+        missing = []
+        for feat in self.features:
+            if feat not in df.columns and feat.lower() not in df_cols_map:
+                missing.append(feat)
+        return len(missing) == 0, missing
+
     def preprocess(self, df: pd.DataFrame) -> np.ndarray:
+        df_cols_map = {str(c).strip().lower(): c for c in df.columns}
+        
+        missing = [f for f in self.features if f not in df.columns and f.lower() not in df_cols_map]
+        if missing:
+            raise ValueError(f"Input is missing {len(missing)} required UNSW-NB15 features. Incompatible input cannot be classified.")
+
         X = pd.DataFrame()
         for col in self.features:
-            if col in df.columns:
-                X[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
-            else:
-                X[col] = 0.0
+            actual_col = col if col in df.columns else df_cols_map[col.lower()]
+            s = pd.to_numeric(df[actual_col], errors='coerce')
+            s = s.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+            X[col] = s
+
         return X[self.features].to_numpy(dtype=np.float32)
 
     def predict_binary_probabilities(self, X: np.ndarray) -> np.ndarray:
@@ -93,4 +99,3 @@ class UNSWNB15Pipeline:
                 results.append(arr)
             return np.array(results)
         raise RuntimeError("UNSW-NB15 model artifact is not configured or loaded.")
-

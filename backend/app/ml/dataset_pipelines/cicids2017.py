@@ -1,44 +1,20 @@
 import os
 import logging
+from typing import Tuple, List
 import numpy as np
 import pandas as pd
 import xgboost as xgb
 from app.core.config import settings
+from app.ml.registry_metadata import CICIDS_70_FEATURES, CICIDS_CLASSES
 
 logger = logging.getLogger(__name__)
 
-CICIDS_70_FEATURES = [
-    'ACK Flag Count', 'Active Max', 'Active Mean', 'Active Min', 'Active Std',
-    'Average Packet Size', 'Avg Bwd Segment Size', 'Avg Fwd Segment Size',
-    'Bwd Header Length', 'Bwd IAT Max', 'Bwd IAT Mean', 'Bwd IAT Min',
-    'Bwd IAT Std', 'Bwd IAT Total', 'Bwd Packet Length Max',
-    'Bwd Packet Length Mean', 'Bwd Packet Length Min', 'Bwd Packet Length Std',
-    'Bwd Packets/s', 'CWE Flag Count', 'Destination Port', 'Down/Up Ratio',
-    'ECE Flag Count', 'FIN Flag Count', 'Flow Bytes/s', 'Flow Duration',
-    'Flow IAT Max', 'Flow IAT Mean', 'Flow IAT Min', 'Flow IAT Std',
-    'Flow Packets/s', 'Fwd Header Length', 'Fwd Header Length.1',
-    'Fwd IAT Max', 'Fwd IAT Mean', 'Fwd IAT Min', 'Fwd IAT Std',
-    'Fwd IAT Total', 'Fwd PSH Flags', 'Fwd Packet Length Max',
-    'Fwd Packet Length Mean', 'Fwd Packet Length Min', 'Fwd Packet Length Std',
-    'Fwd Packets/s', 'Fwd URG Flags', 'Idle Max', 'Idle Mean', 'Idle Min',
-    'Idle Std', 'Init_Win_bytes_backward', 'Init_Win_bytes_forward',
-    'Max Packet Length', 'Min Packet Length', 'PSH Flag Count',
-    'Packet Length Mean', 'Packet Length Std', 'Packet Length Variance',
-    'RST Flag Count', 'SYN Flag Count', 'Subflow Bwd Bytes',
-    'Subflow Bwd Packets', 'Subflow Fwd Bytes', 'Subflow Fwd Packets',
-    'Total Backward Packets', 'Total Fwd Packets',
-    'Total Length of Bwd Packets', 'Total Length of Fwd Packets',
-    'URG Flag Count', 'act_data_pkt_fwd', 'min_seg_size_forward'
-]
-
-CICIDS_CLASSES = [
-    'BENIGN', 'Bot', 'DDoS', 'DoS GoldenEye', 'DoS Hulk', 'DoS Slowhttptest',
-    'DoS slowloris', 'FTP-Patator', 'Heartbleed', 'Infiltration', 'PortScan',
-    'SSH-Patator', 'Web Attack - Brute Force', 'Web Attack - SQL Injection',
-    'Web Attack - XSS'
-]
-
 class CICIDS2017Pipeline:
+    """
+    Inference pipeline for CICIDS2017 70-feature Multiclass XGBoost model.
+    Enforces strict feature validation, eliminates silent zero-filling,
+    and maps class probabilities.
+    """
     def __init__(self):
         self.dataset_name = "CICIDS2017"
         self.features = CICIDS_70_FEATURES
@@ -66,14 +42,31 @@ class CICIDS2017Pipeline:
     def is_ready(self) -> bool:
         return self.loaded and self.model is not None
 
+    def validate_features(self, df: pd.DataFrame) -> Tuple[bool, List[str]]:
+        # Check for presence of required 70 features (case-insensitive fallback)
+        df_cols_map = {str(c).strip().lower(): str(c).strip() for c in df.columns}
+        missing = []
+        for feat in self.features:
+            if feat not in df.columns and feat.lower() not in df_cols_map:
+                missing.append(feat)
+        return len(missing) == 0, missing
+
     def preprocess(self, df: pd.DataFrame) -> np.ndarray:
-        # Match feature order, fill missing columns with 0.0
+        # Validate that required features exist rather than filling missing with zero
+        df_cols_map = {str(c).strip().lower(): c for c in df.columns}
+        
+        missing = [f for f in self.features if f not in df.columns and f.lower() not in df_cols_map]
+        if missing:
+            raise ValueError(f"Input is missing {len(missing)} required CICIDS2017 features. Incompatible input cannot be classified.")
+
         X = pd.DataFrame()
         for col in self.features:
-            if col in df.columns:
-                X[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
-            else:
-                X[col] = 0.0
+            actual_col = col if col in df.columns else df_cols_map[col.lower()]
+            # Convert to numeric, replace non-finite values (inf / -inf) with finite bounds
+            s = pd.to_numeric(df[actual_col], errors='coerce')
+            s = s.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+            X[col] = s
+
         return X[self.features].to_numpy(dtype=np.float32)
 
     def predict_probabilities(self, X: np.ndarray) -> np.ndarray:
