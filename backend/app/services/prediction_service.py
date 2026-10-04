@@ -7,7 +7,13 @@ from sqlalchemy.orm import Session
 
 from app.models.cicids_xgboost import cicids_model_wrapper
 from app.models.unsw_xgboost import unsw_model_wrapper
-from app.ml.registry_metadata import CICIDS_70_FEATURES, CICIDS_CLASSES, UNSW_42_FEATURES, UNSW_ATTACK_CLASSES
+from app.models.generalized_xgboost import generalized_xgb_wrapper
+from app.models.isolation_forest import isolation_forest_wrapper
+from app.ml.registry_metadata import (
+    CICIDS_70_FEATURES, CICIDS_CLASSES,
+    UNSW_42_FEATURES, UNSW_ATTACK_CLASSES,
+    GENERALIZED_10_FEATURES, GENERALIZED_CLASSES
+)
 from app.services.risk_service import RiskService
 from app.services.compatibility_engine import CompatibilityEngine, CompatibilityStatus, TARGET_LABEL_COLUMNS
 from app.services.dataset_evaluator import DatasetEvaluatorService
@@ -18,12 +24,16 @@ class PredictionService:
     def predict_single(db: Session, dataset: str, features: Dict[str, Any]) -> Dict[str, Any]:
         dataset_clean = dataset.lower().strip()
         
-        if "cicids" in dataset_clean:
+        if "isolation" in dataset_clean or "iforest" in dataset_clean:
+            return PredictionService._predict_isolation_forest_single(db, features)
+        elif "gen" in dataset_clean:
+            return PredictionService._predict_generalized_single(db, features)
+        elif "cicids" in dataset_clean:
             return PredictionService._predict_cicids_single(db, features)
         elif "unsw" in dataset_clean:
             return PredictionService._predict_unsw_single(db, features)
         else:
-            raise ValueError(f"Unsupported dataset '{dataset}'. Choose 'cicids2017' or 'unsw-nb15'.")
+            raise ValueError(f"Unsupported dataset '{dataset}'. Choose 'cicids2017', 'unsw-nb15', 'generalized-xgb', or 'isolation-forest'.")
 
     @staticmethod
     def _predict_cicids_single(db: Session, features: Dict[str, Any]) -> Dict[str, Any]:
@@ -301,6 +311,164 @@ class PredictionService:
             ("sttl", 9), ("ct_state_ttl", 31), ("sbytes", 6), ("dbytes", 7),
             ("rate", 8), ("dur", 0), ("sload", 11), ("dload", 12),
             ("ct_srv_src", 30), ("ct_dst_src_ltm", 35)
+        ]
+        res = []
+        for name, idx in key_features:
+            val = float(input_vector[idx]) if idx < len(input_vector) else 0.0
+            importance = round(min(1.0, abs(val) * 0.01 + 0.1), 4)
+            res.append({
+                "feature": name,
+                "value": round(val, 2),
+                "importance": importance,
+                "direction": "positive" if val > 0 else "negative"
+            })
+        return res
+
+    @staticmethod
+    def _predict_generalized_single(db: Session, features: Dict[str, Any]) -> Dict[str, Any]:
+        features_lower = {str(k).strip().lower(): v for k, v in features.items()}
+        
+        input_vector = []
+        for feat in GENERALIZED_10_FEATURES:
+            if feat in features:
+                val = features[feat]
+            elif feat.lower() in features_lower:
+                val = features_lower[feat.lower()]
+            else:
+                val = 0.0
+            
+            try:
+                num = float(val)
+                if np.isnan(num) or np.isinf(num):
+                    num = 0.0
+            except (ValueError, TypeError):
+                num = 0.0
+            input_vector.append(num)
+
+        arr = np.array([input_vector], dtype=np.float32)
+
+        if not generalized_xgb_wrapper.is_loaded():
+            raise RuntimeError("Generalized XGBoost model artifact not loaded or configured.")
+
+        probs = generalized_xgb_wrapper.predict_proba(arr)[0]
+        attack_prob = float(probs[1])
+        is_attack = attack_prob >= generalized_xgb_wrapper.threshold
+        predicted_class = "Attack" if is_attack else "Normal"
+        confidence = float(max(probs[0], probs[1]))
+        margin = float(abs(probs[1] - probs[0]))
+
+        risk_score = round(attack_prob * 100.0, 2)
+        risk_level = RiskService.get_risk_level(risk_score)
+        top_features = PredictionService._extract_top_features_generalized(input_vector)
+
+        record = PredictionRepository.create_record(
+            db=db,
+            dataset="generalized-xgb",
+            prediction=predicted_class,
+            is_attack=is_attack,
+            attack_probability=attack_prob,
+            confidence=confidence,
+            risk_score=risk_score,
+            risk_level=risk_level,
+            input_source="manual",
+            top_features=top_features,
+            raw_input=features
+        )
+
+        return {
+            "prediction_id": record.prediction_id,
+            "dataset": "generalized-xgb",
+            "prediction": predicted_class,
+            "is_attack": is_attack,
+            "attack_probability": round(attack_prob, 4),
+            "confidence": round(confidence, 4),
+            "risk_score": risk_score,
+            "risk_level": risk_level,
+            "prediction_margin": round(margin, 4),
+            "top_features": top_features
+        }
+
+    @staticmethod
+    def _predict_isolation_forest_single(db: Session, features: Dict[str, Any]) -> Dict[str, Any]:
+        features_lower = {str(k).strip().lower(): v for k, v in features.items()}
+        
+        input_vector = []
+        for feat in GENERALIZED_10_FEATURES:
+            if feat in features:
+                val = features[feat]
+            elif feat.lower() in features_lower:
+                val = features_lower[feat.lower()]
+            else:
+                val = 0.0
+            
+            try:
+                num = float(val)
+                if np.isnan(num) or np.isinf(num):
+                    num = 0.0
+            except (ValueError, TypeError):
+                num = 0.0
+            input_vector.append(num)
+
+        arr = np.array([input_vector], dtype=np.float32)
+
+        if not isolation_forest_wrapper.is_loaded():
+            raise RuntimeError("Isolation Forest model artifact not loaded or configured.")
+
+        scores = isolation_forest_wrapper.decision_function(arr)
+        score = float(scores[0])
+        is_anomaly = score < isolation_forest_wrapper.threshold
+        predicted_class = "Anomaly" if is_anomaly else "Normal"
+        
+        attack_prob = round(float(min(1.0, max(0.0, (isolation_forest_wrapper.threshold - score) * 2.0 + 0.5))) if is_anomaly else float(max(0.01, min(0.49, 0.5 - (score - isolation_forest_wrapper.threshold) * 2.0))), 4)
+        confidence = round(float(min(1.0, abs(score - isolation_forest_wrapper.threshold) * 5.0 + 0.5)), 4)
+        margin = round(abs(confidence - 0.5), 4)
+
+        risk_score = round(attack_prob * 100.0, 2)
+        risk_level = RiskService.get_risk_level(risk_score)
+        top_features = PredictionService._extract_top_features_generalized(input_vector)
+
+        record = PredictionRepository.create_record(
+            db=db,
+            dataset="isolation-forest",
+            prediction=predicted_class,
+            is_attack=is_anomaly,
+            attack_probability=attack_prob,
+            confidence=confidence,
+            risk_score=risk_score,
+            risk_level=risk_level,
+            input_source="manual",
+            top_features=top_features,
+            raw_input=features
+        )
+
+        return {
+            "prediction_id": record.prediction_id,
+            "dataset": "isolation-forest",
+            "prediction": predicted_class,
+            "is_attack": is_anomaly,
+            "attack_probability": round(attack_prob, 4),
+            "confidence": round(confidence, 4),
+            "risk_score": risk_score,
+            "risk_level": risk_level,
+            "prediction_margin": round(margin, 4),
+            "top_features": top_features,
+            "decision_function_score": round(score, 6),
+            "decision_threshold": round(isolation_forest_wrapper.threshold, 6)
+        }
+
+    @staticmethod
+    def _extract_top_features_generalized(input_vector: list) -> list:
+        key_features = [
+            ("duration_seconds", 0),
+            ("forward_packets", 1),
+            ("backward_packets", 2),
+            ("forward_bytes", 3),
+            ("backward_bytes", 4),
+            ("total_packets", 5),
+            ("total_bytes", 6),
+            ("packets_per_second", 7),
+            ("bytes_per_second", 8),
+            ("average_packet_size", 9)
         ]
         res = []
         for name, idx in key_features:

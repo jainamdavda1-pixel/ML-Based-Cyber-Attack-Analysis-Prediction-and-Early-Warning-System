@@ -51,6 +51,24 @@ UNSW_ATTACK_CLASSES: List[str] = [
     'Generic', 'Normal', 'Reconnaissance', 'Shellcode', 'Worms'
 ]
 
+GENERALIZED_10_FEATURES: List[str] = [
+    "duration_seconds",
+    "forward_packets",
+    "backward_packets",
+    "forward_bytes",
+    "backward_bytes",
+    "total_packets",
+    "total_bytes",
+    "packets_per_second",
+    "bytes_per_second",
+    "average_packet_size"
+]
+
+GENERALIZED_CLASSES: List[str] = [
+    "Normal",
+    "Attack"
+]
+
 MODEL_REGISTRY_METADATA: Dict[str, Dict[str, Any]] = {
     "cicids2017-xgboost-multiclass": {
         "model_id": "cicids2017-xgboost-multiclass",
@@ -142,6 +160,56 @@ MODEL_REGISTRY_METADATA: Dict[str, Dict[str, Any]] = {
         },
         "known_limitations": [
             "Minority classes (Worms, Analysis, Backdoor) have limited samples in the benchmark partition."
+        ]
+    },
+    "generalized-xgboost-binary": {
+        "model_id": "generalized-xgboost-binary",
+        "name": "Generalized Cross-Dataset Binary XGBoost Classifier",
+        "dataset": "Generalized",
+        "task": "binary_classification",
+        "model_architecture": "Gradient Boosted Decision Trees with Median SimpleImputer Pipeline",
+        "features": GENERALIZED_10_FEATURES,
+        "feature_count": len(GENERALIZED_10_FEATURES),
+        "classes": GENERALIZED_CLASSES,
+        "class_count": len(GENERALIZED_CLASSES),
+        "decision_threshold": 0.1743,
+        "decision_threshold_notes": "Calibrated on validation set targeting 1% benign false positive rate (threshold = 0.1743).",
+        "supported_input_sources": ["CSV (Standardized 10-feature schema or canonical flow telemetry)", "PCAP / PCAPNG (Derived Flow Features)", "Live Capture (Canonical Flow Adapter)"],
+        "evaluation_metrics": {
+            "validation_target": "1% benign FPR validation target",
+            "threshold": 0.1743,
+            "feature_representation": "Standard 10 bidirectional duration, packet, byte, rate, and size features."
+        },
+        "known_limitations": [
+            "Evaluates binary normal vs. attack behavior across 10 aggregate flow features; does not classify granular sub-attack families.",
+            "Requires non-negative flow duration and packet/byte counters."
+        ]
+    },
+    "isolation-forest-baseline": {
+        "model_id": "isolation-forest-baseline",
+        "name": "Baseline Unsupervised Isolation Forest Anomaly Detector",
+        "dataset": "Generalized",
+        "task": "anomaly_detection",
+        "model_architecture": "Isolation Forest (300 estimators with SimpleImputer pipeline)",
+        "features": GENERALIZED_10_FEATURES,
+        "feature_count": len(GENERALIZED_10_FEATURES),
+        "classes": ["Inlier / Normal", "Outlier / Anomaly"],
+        "class_count": 2,
+        "decision_threshold": 0.02341647450041217,
+        "decision_threshold_notes": "Decision function threshold calibrated on benign-only quantile targeting 10% benign FPR. Anomaly rule: decision_function_score < threshold.",
+        "supported_input_sources": ["CSV (Standardized 10-feature schema or canonical flow telemetry)", "PCAP / PCAPNG (Derived Flow Features)", "Live Capture (Canonical Flow Adapter)"],
+        "evaluation_metrics": {
+            "validation_rows": 788876,
+            "target_benign_fpr": 0.10,
+            "validation_benign_fpr": 0.100002,
+            "validation_attack_recall": 0.497416,
+            "validation_attack_precision": 0.860164,
+            "validation_accuracy": 0.677408,
+            "status": "experimental_not_production_approved"
+        },
+        "known_limitations": [
+            "Experimental baseline anomaly detector; lower recall on sophisticated low-volume evasion traffic.",
+            "High variance on extreme volumetric outliers compared to supervised gradient boosted trees."
         ]
     }
 }

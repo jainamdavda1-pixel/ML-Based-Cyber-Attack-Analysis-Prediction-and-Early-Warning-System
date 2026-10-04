@@ -11,6 +11,22 @@ export const DashboardPage: React.FC<{ selectedDataset: string }> = ({ selectedD
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const getPipelineLabel = (ds: string) => {
+    const clean = ds.toLowerCase();
+    if (clean.includes('isolation') || clean.includes('iforest')) return 'ISOLATION FOREST';
+    if (clean.includes('gen')) return 'GENERALIZED XGB';
+    if (clean.includes('unsw')) return 'UNSW-NB15';
+    return 'CICIDS2017';
+  };
+
+  const getDefaultCategories = (ds: string): Record<string, number> => {
+    const clean = ds.toLowerCase();
+    if (clean.includes('isolation') || clean.includes('iforest')) return { Normal: 20, Anomaly: 4 };
+    if (clean.includes('gen')) return { Normal: 20, Attack: 5 };
+    if (clean.includes('unsw')) return { Normal: 20, Generic: 8, Exploits: 5, Fuzzers: 4, DoS: 3, Reconnaissance: 2 };
+    return { BENIGN: 25, PortScan: 6, DDoS: 4, 'DoS Hulk': 3, 'FTP-Patator': 2 };
+  };
+
   const isUnsw = selectedDataset.toLowerCase().includes('unsw');
 
   const loadData = async () => {
@@ -48,9 +64,7 @@ export const DashboardPage: React.FC<{ selectedDataset: string }> = ({ selectedD
   }
 
   // Dataset-specific chart defaults when no live data has been recorded yet
-  const defaultCategories: Record<string, number> = isUnsw
-    ? { Normal: 20, Generic: 8, Exploits: 5, Fuzzers: 4, DoS: 3, Reconnaissance: 2 }
-    : { BENIGN: 25, PortScan: 6, DDoS: 4, 'DoS Hulk': 3, 'FTP-Patator': 2 };
+  const defaultCategories: Record<string, number> = getDefaultCategories(selectedDataset);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -74,7 +88,7 @@ export const DashboardPage: React.FC<{ selectedDataset: string }> = ({ selectedD
         <div className="flex items-center gap-3">
           <span className="text-xs font-mono px-3 py-1.5 rounded-xl bg-slate-800 text-cyan-400 border border-slate-700 flex items-center gap-2 font-bold">
             <Layers className="w-3.5 h-3.5" />
-            <span>PIPELINE: {isUnsw ? 'UNSW-NB15' : 'CICIDS2017'}</span>
+            <span>PIPELINE: {getPipelineLabel(selectedDataset)}</span>
           </span>
           <button
             onClick={loadData}
@@ -92,7 +106,7 @@ export const DashboardPage: React.FC<{ selectedDataset: string }> = ({ selectedD
         <StatCard
           title="Total Flow Records"
           value={summary?.total_analyzed ?? 0}
-          subtitle={`Telemetry: ${isUnsw ? 'UNSW-NB15' : 'CICIDS2017'}`}
+          subtitle={`Telemetry: ${getPipelineLabel(selectedDataset)}`}
           icon={ShieldCheck}
           color="indigo"
         />
@@ -125,7 +139,7 @@ export const DashboardPage: React.FC<{ selectedDataset: string }> = ({ selectedD
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-sm font-semibold text-slate-200 font-mono flex items-center space-x-2">
               <span className="w-2 h-2 rounded-full bg-cyan-400" />
-              <span>Attack Category Distribution ({isUnsw ? 'UNSW-NB15' : 'CICIDS2017'})</span>
+              <span>Attack Category Distribution ({getPipelineLabel(selectedDataset)})</span>
             </h3>
             {Object.keys(categoryDist).length === 0 && (
               <span className="text-[10px] font-mono text-slate-500 italic">Baseline Reference</span>
@@ -140,9 +154,9 @@ export const DashboardPage: React.FC<{ selectedDataset: string }> = ({ selectedD
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-sm font-semibold text-slate-200 font-mono flex items-center space-x-2">
               <span className="w-2 h-2 rounded-full bg-amber-400" />
-              <span>Risk Level Telemetry ({isUnsw ? 'UNSW-NB15' : 'CICIDS2017'})</span>
+              <span>Risk Level Telemetry ({getPipelineLabel(selectedDataset)})</span>
             </h3>
-            {!summary || summary.total_analyzed === 0 && (
+            {(!summary || summary.total_analyzed === 0) && (
               <span className="text-[10px] font-mono text-slate-500 italic">Baseline Reference</span>
             )}
           </div>
@@ -157,7 +171,7 @@ export const DashboardPage: React.FC<{ selectedDataset: string }> = ({ selectedD
         <div className="flex justify-between items-center">
           <h3 className="text-sm font-semibold text-slate-200 font-mono flex items-center space-x-2">
             <ShieldAlert className="w-4 h-4 text-cyan-400" />
-            <span>Recent Security Event Logs ({isUnsw ? 'UNSW-NB15' : 'CICIDS2017'})</span>
+            <span>Recent Security Event Logs ({getPipelineLabel(selectedDataset)})</span>
           </h3>
           <span className="text-xs text-slate-400 font-mono">
             Showing top {summary?.recent_alerts?.length ?? 0} events
@@ -168,7 +182,7 @@ export const DashboardPage: React.FC<{ selectedDataset: string }> = ({ selectedD
           <div className="p-8 text-center text-xs text-slate-500 font-mono">Loading security events...</div>
         ) : !summary || summary.recent_alerts.length === 0 ? (
           <div className="p-8 text-center text-xs text-slate-500 font-mono border border-dashed border-slate-800 rounded-xl">
-            No events logged for {isUnsw ? 'UNSW-NB15' : 'CICIDS2017'} yet. Run a single flow detection or batch CSV analysis to generate alerts.
+            No events logged for {getPipelineLabel(selectedDataset)} yet. Run a single flow detection or batch CSV analysis to generate alerts.
           </div>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/40">

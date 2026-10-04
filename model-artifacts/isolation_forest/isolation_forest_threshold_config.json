@@ -1,0 +1,15 @@
+{
+  "model": "IsolationForest",
+  "score_function": "decision_function",
+  "anomaly_rule": "decision_function_score < threshold",
+  "threshold": 0.02341647450041217,
+  "target_benign_false_positive_rate": 0.1,
+  "validation_benign_false_positive_rate": 0.10000226820375274,
+  "validation_attack_recall": 0.4974161687766809,
+  "validation_attack_precision": 0.8601638973797828,
+  "validation_accuracy": 0.6774081097663004,
+  "status": "experimental_not_production_approved",
+  "validation_rows": 788876,
+  "calibration_method": "benign_only_calibration_quantile",
+  "evaluation_timestamp_utc": "2026-10-04T10:28:32.471118+00:00"
+}

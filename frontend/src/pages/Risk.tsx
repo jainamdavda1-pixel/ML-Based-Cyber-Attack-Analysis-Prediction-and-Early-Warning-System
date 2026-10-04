@@ -48,6 +48,28 @@ export const RiskPage: React.FC<{ selectedDataset?: string }> = ({ selectedDatas
     }
   };
 
+  const getPipelineLabel = (ds: string) => {
+    const clean = ds.toLowerCase();
+    if (clean.includes('isolation') || clean.includes('iforest')) return 'ISOLATION FOREST';
+    if (clean.includes('gen')) return 'GENERALIZED XGB';
+    if (clean.includes('unsw')) return 'UNSW-NB15';
+    return 'CICIDS2017';
+  };
+
+  const getCalibrationDescription = () => {
+    const clean = selectedDataset.toLowerCase();
+    if (clean.includes('isolation') || clean.includes('iforest')) {
+      return 'Isolation Forest anomaly score baseline (decision threshold 0.023416 on clean traffic baseline)';
+    }
+    if (clean.includes('gen')) {
+      return 'Generalized XGBoost calibrated binary threshold (0.1743 targeting 1% benign FPR)';
+    }
+    if (clean.includes('unsw')) {
+      return 'UNSW-NB15 validation decision boundary (0.50)';
+    }
+    return 'CICIDS2017 frozen validation threshold (0.94)';
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60 p-6 rounded-2xl border border-slate-800 backdrop-blur-xl">
@@ -57,13 +79,13 @@ export const RiskPage: React.FC<{ selectedDataset?: string }> = ({ selectedDatas
             <h1 className="text-2xl font-bold text-slate-100 font-mono">RISK SCORING & EARLY WARNING TELEMETRY</h1>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Calibrated threat risk scoring methodology based on decision probability distributions for {isUnsw ? 'UNSW-NB15' : 'CICIDS2017'}.
+            Calibrated threat risk scoring methodology based on decision probability distributions for {getPipelineLabel(selectedDataset)}.
           </p>
         </div>
 
         <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 text-xs font-mono text-cyan-400">
           <Database className="w-3.5 h-3.5" />
-          <span>Active Pipeline: {selectedDataset.toUpperCase()}</span>
+          <span>Active Pipeline: {getPipelineLabel(selectedDataset)}</span>
         </div>
       </div>
 
@@ -71,9 +93,9 @@ export const RiskPage: React.FC<{ selectedDataset?: string }> = ({ selectedDatas
       <div className="p-4 rounded-xl bg-cyan-950/40 border border-cyan-800/80 flex items-start space-x-3">
         <Info className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
         <div className="text-xs text-slate-300 space-y-1">
-          <p className="font-semibold text-cyan-300 font-mono">CALIBRATED RISK SCORE METHODOLOGY ({selectedDataset.toUpperCase()})</p>
+          <p className="font-semibold text-cyan-300 font-mono">CALIBRATED RISK SCORE METHODOLOGY ({getPipelineLabel(selectedDataset)})</p>
           <p>
-            "Risk score is based on <span className="font-mono text-cyan-400">P(Attack) = 1 - P(BENIGN)</span> and is calibrated using the {isUnsw ? 'UNSW-NB15 validation boundary (0.50)' : 'CICIDS2017 frozen validation threshold (0.94)'}."
+            "Risk score is based on <span className="font-mono text-cyan-400">P(Attack) = 1 - P(Normal / BENIGN)</span> and is calibrated using the {getCalibrationDescription()}."
           </p>
           <p className="text-[11px] text-slate-400">
             Note: Risk scores are categorized into project-defined risk bands (0–30 Low, 30–60 Moderate, 60–80 High, 80–100 Critical) and represent relative likelihood metrics rather than universal standards.

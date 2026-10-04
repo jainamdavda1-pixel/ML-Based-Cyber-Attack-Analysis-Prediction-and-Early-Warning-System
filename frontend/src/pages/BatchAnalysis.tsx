@@ -939,7 +939,7 @@ export const BatchAnalysisPage: React.FC<{ selectedDataset: string }> = ({ selec
                     <span>MODEL TARGET COMPATIBILITY BREAKDOWN</span>
                   </h4>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* CICIDS2017 Card */}
                     {compatibility.models_evaluation.cicids2017 && (
                       <div className={`p-6 rounded-2xl border space-y-4 ${
@@ -949,8 +949,8 @@ export const BatchAnalysisPage: React.FC<{ selectedDataset: string }> = ({ selec
                       }`}>
                         <div className="flex justify-between items-start">
                           <div>
-                            <span className="text-sm font-bold text-slate-200 font-mono">CICIDS2017 Classifier Pipeline</span>
-                            <div className="text-xs text-slate-400 mt-0.5">70 Multiclass Flow Features Required</div>
+                            <span className="text-sm font-bold text-slate-200 font-mono">CICIDS2017 Pipeline</span>
+                            <div className="text-xs text-slate-400 mt-0.5">70 Multiclass Flow Features</div>
                           </div>
                           <span className={`px-2.5 py-1 text-xs font-mono font-bold rounded-lg ${
                             compatibility.models_evaluation.cicids2017.is_inferable
@@ -963,7 +963,7 @@ export const BatchAnalysisPage: React.FC<{ selectedDataset: string }> = ({ selec
 
                         <div className="grid grid-cols-4 gap-3 text-center text-xs font-mono bg-slate-950/70 p-3 rounded-xl border border-slate-800">
                           <div>
-                            <div className="text-[10px] text-slate-400 uppercase">Exact Match</div>
+                            <div className="text-[10px] text-slate-400 uppercase">Exact</div>
                             <div className="text-emerald-400 font-bold text-sm mt-0.5">{compatibility.models_evaluation.cicids2017.matched_count}</div>
                           </div>
                           <div>
@@ -982,10 +982,10 @@ export const BatchAnalysisPage: React.FC<{ selectedDataset: string }> = ({ selec
 
                         {compatibility.models_evaluation.cicids2017.missing_count > 0 && (
                           <div className="text-xs text-slate-400 font-mono pt-1">
-                            <span className="text-amber-400 font-semibold">Missing Essential: </span>
-                            {compatibility.models_evaluation.cicids2017.missing_features.slice(0, 5).join(', ')}
-                            {compatibility.models_evaluation.cicids2017.missing_features.length > 5 &&
-                              ` (+${compatibility.models_evaluation.cicids2017.missing_features.length - 5} more)`}
+                            <span className="text-amber-400 font-semibold">Missing: </span>
+                            {compatibility.models_evaluation.cicids2017.missing_features.slice(0, 4).join(', ')}
+                            {compatibility.models_evaluation.cicids2017.missing_features.length > 4 &&
+                              ` (+${compatibility.models_evaluation.cicids2017.missing_features.length - 4})`}
                           </div>
                         )}
                       </div>
@@ -1000,8 +1000,8 @@ export const BatchAnalysisPage: React.FC<{ selectedDataset: string }> = ({ selec
                       }`}>
                         <div className="flex justify-between items-start">
                           <div>
-                            <span className="text-sm font-bold text-slate-200 font-mono">UNSW-NB15 Classifier Pipeline</span>
-                            <div className="text-xs text-slate-400 mt-0.5">42 Binary & Multiclass Connection Features</div>
+                            <span className="text-sm font-bold text-slate-200 font-mono">UNSW-NB15 Pipeline</span>
+                            <div className="text-xs text-slate-400 mt-0.5">42 Binary & Multi Features</div>
                           </div>
                           <span className={`px-2.5 py-1 text-xs font-mono font-bold rounded-lg ${
                             compatibility.models_evaluation.unsw_nb15.is_inferable
@@ -1014,7 +1014,7 @@ export const BatchAnalysisPage: React.FC<{ selectedDataset: string }> = ({ selec
 
                         <div className="grid grid-cols-4 gap-3 text-center text-xs font-mono bg-slate-950/70 p-3 rounded-xl border border-slate-800">
                           <div>
-                            <div className="text-[10px] text-slate-400 uppercase">Exact Match</div>
+                            <div className="text-[10px] text-slate-400 uppercase">Exact</div>
                             <div className="text-emerald-400 font-bold text-sm mt-0.5">{compatibility.models_evaluation.unsw_nb15.matched_count}</div>
                           </div>
                           <div>
@@ -1033,10 +1033,61 @@ export const BatchAnalysisPage: React.FC<{ selectedDataset: string }> = ({ selec
 
                         {compatibility.models_evaluation.unsw_nb15.missing_count > 0 && (
                           <div className="text-xs text-slate-400 font-mono pt-1">
-                            <span className="text-amber-400 font-semibold">Missing Essential: </span>
-                            {compatibility.models_evaluation.unsw_nb15.missing_features.slice(0, 5).join(', ')}
-                            {compatibility.models_evaluation.unsw_nb15.missing_features.length > 5 &&
-                              ` (+${compatibility.models_evaluation.unsw_nb15.missing_features.length - 5} more)`}
+                            <span className="text-amber-400 font-semibold">Missing: </span>
+                            {compatibility.models_evaluation.unsw_nb15.missing_features.slice(0, 4).join(', ')}
+                            {compatibility.models_evaluation.unsw_nb15.missing_features.length > 4 &&
+                              ` (+${compatibility.models_evaluation.unsw_nb15.missing_features.length - 4})`}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Generalized Cross-Dataset Card */}
+                    {compatibility.models_evaluation.generalized && (
+                      <div className={`p-6 rounded-2xl border space-y-4 ${
+                        compatibility.models_evaluation.generalized.is_inferable
+                          ? 'bg-slate-900/90 border-emerald-500/40 shadow-lg shadow-emerald-950/20'
+                          : 'bg-slate-900/40 border-slate-800'
+                      }`}>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-sm font-bold text-slate-200 font-mono">Generalized Pipeline</span>
+                            <div className="text-xs text-slate-400 mt-0.5">10 Canonical Flow Aggregations</div>
+                          </div>
+                          <span className={`px-2.5 py-1 text-xs font-mono font-bold rounded-lg ${
+                            compatibility.models_evaluation.generalized.is_inferable
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-slate-800 text-slate-400 border border-slate-700'
+                          }`}>
+                            {compatibility.models_evaluation.generalized.status} ({compatibility.models_evaluation.generalized.match_percentage}%)
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-4 gap-3 text-center text-xs font-mono bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+                          <div>
+                            <div className="text-[10px] text-slate-400 uppercase">Exact</div>
+                            <div className="text-emerald-400 font-bold text-sm mt-0.5">{compatibility.models_evaluation.generalized.matched_count}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] text-slate-400 uppercase">Aliases</div>
+                            <div className="text-cyan-400 font-bold text-sm mt-0.5">{compatibility.models_evaluation.generalized.transformed_count}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] text-slate-400 uppercase">Derived</div>
+                            <div className="text-indigo-400 font-bold text-sm mt-0.5">{compatibility.models_evaluation.generalized.derived_count}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] text-slate-400 uppercase">Missing</div>
+                            <div className="text-red-400 font-bold text-sm mt-0.5">{compatibility.models_evaluation.generalized.missing_count}</div>
+                          </div>
+                        </div>
+
+                        {compatibility.models_evaluation.generalized.missing_count > 0 && (
+                          <div className="text-xs text-slate-400 font-mono pt-1">
+                            <span className="text-amber-400 font-semibold">Missing: </span>
+                            {compatibility.models_evaluation.generalized.missing_features.slice(0, 4).join(', ')}
+                            {compatibility.models_evaluation.generalized.missing_features.length > 4 &&
+                              ` (+${compatibility.models_evaluation.generalized.missing_features.length - 4})`}
                           </div>
                         )}
                       </div>

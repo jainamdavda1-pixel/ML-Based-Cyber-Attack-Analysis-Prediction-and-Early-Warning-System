@@ -84,12 +84,36 @@ export const DetectionPage: React.FC<{ selectedDataset: string }> = ({ selectedD
     'is_sm_ips_ports': 0
   };
 
+  const generalizedDefaults: Record<string, number> = {
+    'duration_seconds': 0.85,
+    'forward_packets': 8,
+    'backward_packets': 6,
+    'forward_bytes': 650,
+    'backward_bytes': 1800,
+    'total_packets': 14,
+    'total_bytes': 2450,
+    'packets_per_second': 16.47,
+    'bytes_per_second': 2882.35,
+    'average_packet_size': 175.0
+  };
+
+  const getDefaultsForDataset = (ds: string) => {
+    const clean = ds.toLowerCase();
+    if (clean.includes('gen') || clean.includes('isolation') || clean.includes('iforest')) {
+      return generalizedDefaults;
+    }
+    if (clean.includes('unsw')) {
+      return unswDefaults;
+    }
+    return cicidsDefaults;
+  };
+
   const [featureValues, setFeatureValues] = useState<Record<string, number>>(
-    selectedDataset.includes('unsw') ? unswDefaults : cicidsDefaults
+    getDefaultsForDataset(selectedDataset)
   );
 
   React.useEffect(() => {
-    setFeatureValues(selectedDataset.includes('unsw') ? unswDefaults : cicidsDefaults);
+    setFeatureValues(getDefaultsForDataset(selectedDataset));
     setResult(null);
     setError(null);
   }, [selectedDataset]);
@@ -118,6 +142,24 @@ export const DetectionPage: React.FC<{ selectedDataset: string }> = ({ selectedD
   };
 
   // Feature sections mapping
+  const generalizedSections = [
+    {
+      id: 'flow',
+      title: 'Core Flow & Volume Statistics',
+      features: ['duration_seconds', 'total_packets', 'total_bytes', 'average_packet_size']
+    },
+    {
+      id: 'forward',
+      title: 'Directional Packet & Byte Breakdown',
+      features: ['forward_packets', 'backward_packets', 'forward_bytes', 'backward_bytes']
+    },
+    {
+      id: 'timing',
+      title: 'Flow Transfer Rate Metrics',
+      features: ['packets_per_second', 'bytes_per_second']
+    }
+  ];
+
   const cicidsSections = [
     {
       id: 'flow',
@@ -174,7 +216,8 @@ export const DetectionPage: React.FC<{ selectedDataset: string }> = ({ selectedD
     }
   ];
 
-  const activeSections = selectedDataset.includes('unsw') ? unswSections : cicidsSections;
+  const isGen = selectedDataset.toLowerCase().includes('gen') || selectedDataset.toLowerCase().includes('isolation') || selectedDataset.toLowerCase().includes('iforest');
+  const activeSections = isGen ? generalizedSections : (selectedDataset.includes('unsw') ? unswSections : cicidsSections);
 
   return (
     <div className="space-y-6">

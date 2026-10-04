@@ -248,7 +248,19 @@ class CanonicalFlowState:
             'ct_flw_http_mthd': 0.0,
             'ct_src_ltm': 1.0,
             'ct_srv_dst': 1.0,
-            'is_sm_ips_ports': 1.0 if (self.initiator_ip == self.responder_ip and self.initiator_port == self.responder_port) else 0.0
+            'is_sm_ips_ports': 1.0 if (self.initiator_ip == self.responder_ip and self.initiator_port == self.responder_port) else 0.0,
+
+            # Generalized 10 Cross-Dataset features
+            'duration_seconds': duration_sec,
+            'forward_packets': float(fwd_cnt),
+            'backward_packets': float(bwd_cnt),
+            'forward_bytes': float(fwd_bytes),
+            'backward_bytes': float(bwd_bytes),
+            'total_packets': float(tot_cnt),
+            'total_bytes': float(tot_bytes),
+            'packets_per_second': flow_pkts_per_sec,
+            'bytes_per_second': flow_bytes_per_sec,
+            'average_packet_size': pkt_len_mean
         }
 
         ts = datetime.fromtimestamp(self.start_time, tz=timezone.utc) if self.start_time > 0 else datetime.now(timezone.utc)

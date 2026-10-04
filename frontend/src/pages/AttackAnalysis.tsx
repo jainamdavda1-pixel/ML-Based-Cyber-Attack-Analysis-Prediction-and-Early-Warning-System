@@ -90,41 +90,27 @@ export const AttackAnalysisPage: React.FC<{ selectedDataset: string }> = ({ sele
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Pattern 1 */}
-          <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-3">
-            <div className="flex justify-between items-start">
-              <span className="text-xs font-bold font-mono text-amber-400">XSS ↔ Web Attack - Brute Force Overlap</span>
-              <span className="text-[10px] font-mono bg-amber-950 text-amber-300 px-2 py-0.5 rounded border border-amber-800">
-                Web Attack Confusion
-              </span>
+          {data?.known_misclassifications?.map((item, idx) => (
+            <div key={idx} className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-bold font-mono text-amber-400">{item.pattern}</span>
+                <span className="text-[10px] font-mono bg-amber-950/80 text-amber-300 px-2 py-0.5 rounded border border-amber-800">
+                  {item.direction}
+                </span>
+              </div>
+              <p className="text-xs text-slate-300">
+                <span className="text-slate-400 font-semibold">Primary Attribution Cause: </span>
+                <span className="font-mono text-slate-100">{item.cause}</span>
+              </p>
+              {item.details && item.details.length > 0 && (
+                <ul className="text-xs text-slate-400 space-y-1.5 font-mono list-disc list-inside pt-1">
+                  {item.details.map((detail, dIdx) => (
+                    <li key={dIdx} className="text-slate-300">{detail}</li>
+                  ))}
+                </ul>
+              )}
             </div>
-            <p className="text-xs text-slate-300">
-              For <span className="font-mono text-slate-100 font-semibold">Brute Force → XSS</span> classification errors:
-            </p>
-            <ul className="text-xs text-slate-400 space-y-1.5 font-mono list-disc list-inside">
-              <li><strong className="text-slate-200">Init_Win_bytes_backward</strong> strongly favored Brute Force.</li>
-              <li><strong className="text-slate-200">Max Packet Length</strong> and <strong className="text-slate-200">Bwd Header Length</strong> strongly favored XSS.</li>
-              <li>Several IAT-related features contributed to the feature space overlap between HTTP request streams.</li>
-            </ul>
-          </div>
-
-          {/* Pattern 2 */}
-          <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-3">
-            <div className="flex justify-between items-start">
-              <span className="text-xs font-bold font-mono text-cyan-400">BENIGN → Bot False Positives</span>
-              <span className="text-[10px] font-mono bg-cyan-950 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800">
-                Background Traffic Confusion
-              </span>
-            </div>
-            <p className="text-xs text-slate-300">
-              For <span className="font-mono text-slate-100 font-semibold">BENIGN → Bot</span> false positive alerts:
-            </p>
-            <ul className="text-xs text-slate-400 space-y-1.5 font-mono list-disc list-inside">
-              <li><strong className="text-slate-200">Destination Port</strong> was the strongest differentiating feature.</li>
-              <li>Periodic automated background tasks on workstations mimic C2 heartbeat packet intervals.</li>
-              <li>Flow duration and packet count ratios triggered Bot classifier thresholds.</li>
-            </ul>
-          </div>
+          ))}
         </div>
       </div>
     </div>

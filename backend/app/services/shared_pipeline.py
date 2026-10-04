@@ -6,9 +6,15 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.ml.registry_metadata import CICIDS_70_FEATURES, CICIDS_CLASSES, UNSW_42_FEATURES, UNSW_ATTACK_CLASSES
+from app.ml.registry_metadata import (
+    CICIDS_70_FEATURES, CICIDS_CLASSES,
+    UNSW_42_FEATURES, UNSW_ATTACK_CLASSES,
+    GENERALIZED_10_FEATURES, GENERALIZED_CLASSES
+)
 from app.models.cicids_xgboost import cicids_model_wrapper
 from app.models.unsw_xgboost import unsw_model_wrapper
+from app.models.generalized_xgboost import generalized_xgb_wrapper
+from app.models.isolation_forest import isolation_forest_wrapper
 from app.services.risk_service import RiskService
 from app.database.repositories import FlowRepository, IncidentRepository
 
@@ -34,21 +40,32 @@ class SharedPipelineService:
         if not flows:
             return []
 
-        dataset_norm = "unsw-nb15" if "unsw" in dataset.lower() else "cicids2017"
-        results = []
-
-        if dataset_norm == "cicids2017":
-            feature_keys = CICIDS_70_FEATURES
-            model_wrapper = cicids_model_wrapper
-            classes = CICIDS_CLASSES
-        else:
+        dataset_raw = str(dataset).lower().strip()
+        if "isolation" in dataset_raw or "iforest" in dataset_raw:
+            dataset_norm = "isolation_forest"
+            feature_keys = GENERALIZED_10_FEATURES
+            model_wrapper = isolation_forest_wrapper
+            classes = ["Normal", "Anomaly"]
+        elif "gen" in dataset_raw:
+            dataset_norm = "generalized"
+            feature_keys = GENERALIZED_10_FEATURES
+            model_wrapper = generalized_xgb_wrapper
+            classes = GENERALIZED_CLASSES
+        elif "unsw" in dataset_raw:
+            dataset_norm = "unsw-nb15"
             feature_keys = UNSW_42_FEATURES
             model_wrapper = unsw_model_wrapper
             classes = UNSW_ATTACK_CLASSES
+        else:
+            dataset_norm = "cicids2017"
+            feature_keys = CICIDS_70_FEATURES
+            model_wrapper = cicids_model_wrapper
+            classes = CICIDS_CLASSES
 
         if not model_wrapper.is_loaded():
             raise RuntimeError(f"Model artifact for {dataset_norm.upper()} is not loaded or configured.")
 
+        results = []
         # Build feature rows with strict feature extraction
         matrix_rows = []
         valid_flows = []
@@ -97,33 +114,61 @@ class SharedPipelineService:
         # Run inference
         if dataset_norm == "cicids2017":
             all_probs = model_wrapper.predict_features(X)
-        else:
+        elif dataset_norm == "unsw-nb15":
             all_probs = model_wrapper.predict_multi_probs(X)
+        elif dataset_norm == "generalized":
+            all_probs = model_wrapper.predict_proba(X)
+        else: # isolation_forest
+            all_scores = model_wrapper.decision_function(X)
 
         processed_flow_objects = []
 
         for i, f in enumerate(valid_flows):
-            probs = all_probs[i]
-            top_idx = int(np.argmax(probs))
-            predicted_class = classes[top_idx] if top_idx < len(classes) else str(top_idx)
-
-            sorted_p = np.sort(probs)[::-1]
-            confidence = float(sorted_p[0])
-            margin = float(sorted_p[0] - sorted_p[1]) if len(sorted_p) > 1 else confidence
-
             if dataset_norm == "cicids2017":
+                probs = all_probs[i]
+                top_idx = int(np.argmax(probs))
+                predicted_class = classes[top_idx] if top_idx < len(classes) else str(top_idx)
+                sorted_p = np.sort(probs)[::-1]
+                confidence = float(sorted_p[0])
+                margin = float(sorted_p[0] - sorted_p[1]) if len(sorted_p) > 1 else confidence
                 benign_idx = classes.index("BENIGN") if "BENIGN" in classes else 0
                 benign_prob = float(probs[benign_idx])
                 attack_prob = 1.0 - benign_prob
                 is_attack = predicted_class != "BENIGN"
-            else:
+            elif dataset_norm == "unsw-nb15":
+                probs = all_probs[i]
+                top_idx = int(np.argmax(probs))
+                predicted_class = classes[top_idx] if top_idx < len(classes) else str(top_idx)
+                sorted_p = np.sort(probs)[::-1]
+                confidence = float(sorted_p[0])
+                margin = float(sorted_p[0] - sorted_p[1]) if len(sorted_p) > 1 else confidence
                 norm_idx = classes.index("Normal") if "Normal" in classes else 6
                 normal_prob = float(probs[norm_idx])
                 attack_prob = 1.0 - normal_prob
                 is_attack = predicted_class != "Normal"
+            elif dataset_norm == "generalized":
+                probs = all_probs[i]
+                attack_prob = float(probs[1])
+                is_attack = attack_prob >= model_wrapper.threshold
+                predicted_class = "Attack" if is_attack else "Normal"
+                confidence = float(max(probs[0], probs[1]))
+                margin = float(abs(probs[1] - probs[0]))
+            else: # isolation_forest
+                score = float(all_scores[i])
+                is_attack = score < model_wrapper.threshold
+                predicted_class = "Anomaly" if is_attack else "Normal"
+                attack_prob = round(float(min(1.0, max(0.0, (model_wrapper.threshold - score) * 2.0 + 0.5))) if is_attack else float(max(0.01, min(0.49, 0.5 - (score - model_wrapper.threshold) * 2.0))), 4)
+                confidence = round(float(min(1.0, abs(score - model_wrapper.threshold) * 5.0 + 0.5)), 4)
+                margin = round(abs(confidence - 0.5), 4)
 
             risk_score = round(attack_prob * 100.0, 2)
             risk_level = RiskService.get_risk_level(risk_score)
+
+            dataset_display = (
+                "CICIDS2017" if dataset_norm == "cicids2017"
+                else ("UNSW-NB15" if dataset_norm == "unsw-nb15"
+                else ("Generalized-XGB" if dataset_norm == "generalized" else "Isolation-Forest"))
+            )
 
             flow_res = {
                 "flow_id": f.get("flow_id", f"flow-{uuid.uuid4().hex[:12]}"),
@@ -139,7 +184,7 @@ class SharedPipelineService:
                 "duration": float(f.get("duration", 0.0)),
                 "packet_count": int(f.get("packet_count", 1)),
                 "byte_count": int(f.get("byte_count", 0)),
-                "dataset": "CICIDS2017" if dataset_norm == "cicids2017" else "UNSW-NB15",
+                "dataset": dataset_display,
                 "prediction": predicted_class,
                 "is_attack": is_attack,
                 "confidence": round(confidence, 4),
@@ -165,7 +210,7 @@ class SharedPipelineService:
                     attack_category=predicted_class,
                     severity=severity,
                     risk_score=risk_score,
-                    notes=f"Correlated from {source_type} flow analysis."
+                    notes=f"Correlated from {source_type} flow analysis ({dataset_display})."
                 )
 
         if persist and processed_flow_objects:

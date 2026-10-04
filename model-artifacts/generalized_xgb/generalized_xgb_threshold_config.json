@@ -1,0 +1,6 @@
+{
+    "threshold": 0.1743,
+    "threshold_name": "1% benign FPR validation target",
+    "selection_data": "Validation set",
+    "test_evaluation_completed": true
+}

@@ -86,6 +86,14 @@ export function LiveMonitoringPage({ selectedDataset }: LiveMonitoringProps) {
 
   const isRunning = status?.running ?? false;
 
+  const getPipelineLabel = (ds: string) => {
+    const clean = ds.toLowerCase();
+    if (clean.includes('isolation') || clean.includes('iforest')) return 'ISOLATION FOREST';
+    if (clean.includes('gen')) return 'GENERALIZED XGB';
+    if (clean.includes('unsw')) return 'UNSW-NB15';
+    return 'CICIDS2017';
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -101,7 +109,10 @@ export function LiveMonitoringPage({ selectedDataset }: LiveMonitoringProps) {
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <span className="text-xs font-mono px-3 py-2 rounded-xl bg-slate-800 text-cyan-400 border border-slate-700 font-bold flex items-center gap-1.5">
+            <span>PIPELINE: {getPipelineLabel(selectedDataset)}</span>
+          </span>
           <select
             value={selectedInterface}
             onChange={(e) => setSelectedInterface(e.target.value)}

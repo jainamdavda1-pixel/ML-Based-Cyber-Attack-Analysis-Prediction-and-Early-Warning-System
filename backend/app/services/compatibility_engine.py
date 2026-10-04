@@ -6,7 +6,7 @@ from typing import Dict, Any, List, Optional, Tuple, Set
 import numpy as np
 import pandas as pd
 
-from app.ml.registry_metadata import CICIDS_70_FEATURES, UNSW_42_FEATURES, MODEL_REGISTRY_METADATA
+from app.ml.registry_metadata import CICIDS_70_FEATURES, UNSW_42_FEATURES, GENERALIZED_10_FEATURES, MODEL_REGISTRY_METADATA
 
 logger = logging.getLogger(__name__)
 
@@ -410,6 +410,126 @@ UNSW_COLUMN_ALIASES = {
     "ack_dat": "ackdat"
 }
 
+# Verified Domain 1-to-1 Column Aliases for Generalized 10 Features
+GENERALIZED_COLUMN_ALIASES = {
+    # duration_seconds
+    "dur": "duration_seconds",
+    "duration": "duration_seconds",
+    "flow_duration": "duration_seconds",
+    "flow_duration_s": "duration_seconds",
+    "flow_duration_sec": "duration_seconds",
+    "flow_duration_seconds": "duration_seconds",
+    "duration_s": "duration_seconds",
+    "duration_sec": "duration_seconds",
+    "flow_dur": "duration_seconds",
+    "flow_dur_s": "duration_seconds",
+    "flow duration": "duration_seconds",
+    "Flow Duration": "duration_seconds",
+
+    # forward_packets
+    "spkts": "forward_packets",
+    "fwd_pkts": "forward_packets",
+    "fwd_packets": "forward_packets",
+    "total_fwd_packets": "forward_packets",
+    "total_fwd_pkts": "forward_packets",
+    "tot_fwd_pkts": "forward_packets",
+    "total_forward_packets": "forward_packets",
+    "Total Fwd Packets": "forward_packets",
+    "total fwd packets": "forward_packets",
+    "fwd_pkt_count": "forward_packets",
+    "fwd_packets_total": "forward_packets",
+    "fwd_pkts_tot": "forward_packets",
+
+    # backward_packets
+    "dpkts": "backward_packets",
+    "bwd_pkts": "backward_packets",
+    "bwd_packets": "backward_packets",
+    "total_bwd_packets": "backward_packets",
+    "total_bwd_pkts": "backward_packets",
+    "tot_bwd_pkts": "backward_packets",
+    "total_backward_packets": "backward_packets",
+    "Total Backward Packets": "backward_packets",
+    "total backward packets": "backward_packets",
+    "bwd_pkt_count": "backward_packets",
+    "bwd_packets_total": "backward_packets",
+    "bwd_pkts_tot": "backward_packets",
+
+    # forward_bytes
+    "sbytes": "forward_bytes",
+    "fwd_bytes": "forward_bytes",
+    "tot_fwd_bytes": "forward_bytes",
+    "total_fwd_bytes": "forward_bytes",
+    "Total Length of Fwd Packets": "forward_bytes",
+    "total length of fwd packets": "forward_bytes",
+    "totlen_fwd_pkts": "forward_bytes",
+    "total_length_of_fwd_packets": "forward_bytes",
+    "total_length_fwd_packets": "forward_bytes",
+    "total_len_fwd_pkts": "forward_bytes",
+    "tot_len_fwd_pkts": "forward_bytes",
+    "fwd_len_tot": "forward_bytes",
+    "fwd_tot_len": "forward_bytes",
+
+    # backward_bytes
+    "dbytes": "backward_bytes",
+    "bwd_bytes": "backward_bytes",
+    "tot_bwd_bytes": "backward_bytes",
+    "total_bwd_bytes": "backward_bytes",
+    "Total Length of Bwd Packets": "backward_bytes",
+    "total length of bwd packets": "backward_bytes",
+    "totlen_bwd_pkts": "backward_bytes",
+    "total_length_of_bwd_packets": "backward_bytes",
+    "total_length_bwd_packets": "backward_bytes",
+    "total_len_bwd_pkts": "backward_bytes",
+    "tot_len_bwd_pkts": "backward_bytes",
+    "bwd_len_tot": "backward_bytes",
+    "bwd_tot_len": "backward_bytes",
+
+    # total_packets
+    "tot_pkts": "total_packets",
+    "total_pkts": "total_packets",
+    "tot_packets": "total_packets",
+    "total_packets": "total_packets",
+    "packet_count": "total_packets",
+    "pkts": "total_packets",
+    "total_flow_packets": "total_packets",
+
+    # total_bytes
+    "tot_bytes": "total_bytes",
+    "total_bytes": "total_bytes",
+    "byte_count": "total_bytes",
+    "bytes": "total_bytes",
+    "total_flow_bytes": "total_bytes",
+    "tot_len": "total_bytes",
+
+    # packets_per_second
+    "rate": "packets_per_second",
+    "flow_pkts_per_sec": "packets_per_second",
+    "Flow Packets/s": "packets_per_second",
+    "flow packets/s": "packets_per_second",
+    "flow_packets_s": "packets_per_second",
+    "pkts_per_sec": "packets_per_second",
+    "packet_rate": "packets_per_second",
+    "packets_s": "packets_per_second",
+
+    # bytes_per_second
+    "flow_bytes_per_sec": "bytes_per_second",
+    "Flow Bytes/s": "bytes_per_second",
+    "flow bytes/s": "bytes_per_second",
+    "flow_bytes_s": "bytes_per_second",
+    "bytes_per_sec": "bytes_per_second",
+    "byte_rate": "bytes_per_second",
+    "bytes_s": "bytes_per_second",
+
+    # average_packet_size
+    "avg_packet_size": "average_packet_size",
+    "Average Packet Size": "average_packet_size",
+    "average packet size": "average_packet_size",
+    "avg_pkt_size": "average_packet_size",
+    "mean_packet_size": "average_packet_size",
+    "packet_size_mean": "average_packet_size",
+    "pkt_len_mean": "average_packet_size"
+}
+
 class CompatibilityEngine:
     """
     Multi-Stage Input Profiler, Schema Verification, and Feature Adaptation Engine.
@@ -473,13 +593,15 @@ class CompatibilityEngine:
         feature_columns = [c for c in cleaned_columns if c.lower() not in [tl.lower() for tl in TARGET_LABEL_COLUMNS]]
         detected_labels = [c for c in cleaned_columns if c.lower() in [tl.lower() for tl in TARGET_LABEL_COLUMNS]]
 
-        # Evaluate against CICIDS2017 and UNSW-NB15 models independently
+        # Evaluate against CICIDS2017, UNSW-NB15, and Generalized models independently
         cicids_eval = cls._evaluate_model_compatibility(df, feature_columns, "cicids2017")
         unsw_eval = cls._evaluate_model_compatibility(df, feature_columns, "unsw-nb15")
+        gen_eval = cls._evaluate_model_compatibility(df, feature_columns, "generalized")
 
         models_eval = {
             "cicids2017": cicids_eval,
-            "unsw_nb15": unsw_eval
+            "unsw_nb15": unsw_eval,
+            "generalized": gen_eval
         }
 
         # Model Selection Decision
@@ -493,54 +615,91 @@ class CompatibilityEngine:
         if detected_labels:
             warnings.append(f"Ground-truth label column(s) {detected_labels} were detected and isolated from model input features.")
 
-        # Priority 1: Check if requested dataset matches and is inferable
+        # Priority 1: Check if requested dataset matches
         req_norm = requested_dataset.lower().strip() if requested_dataset else None
 
-        if req_norm and "cicids" in req_norm and cicids_eval["is_inferable"]:
-            overall_status = cicids_eval["status"]
-            selected_schema = "CICIDS2017" if overall_status == CompatibilityStatus.EXACT_MATCH else "Adapted CICIDS2017"
-            compatible_models = ["cicids2017-xgboost-multiclass"]
-            mapping_report = cicids_eval["mapping_report"]
-            applied_transforms = cicids_eval["transformations_summary"]
-        elif req_norm and "unsw" in req_norm and unsw_eval["is_inferable"]:
-            overall_status = unsw_eval["status"]
-            selected_schema = "UNSW-NB15" if overall_status == CompatibilityStatus.EXACT_MATCH else "Adapted UNSW-NB15"
-            compatible_models = ["unsw-nb15-xgboost-binary", "unsw-nb15-xgboost-multiclass"]
-            mapping_report = unsw_eval["mapping_report"]
-            applied_transforms = unsw_eval["transformations_summary"]
-        elif cicids_eval["is_inferable"]:
-            overall_status = cicids_eval["status"]
-            selected_schema = "CICIDS2017" if overall_status == CompatibilityStatus.EXACT_MATCH else "Adapted CICIDS2017"
-            compatible_models = ["cicids2017-xgboost-multiclass"]
-            mapping_report = cicids_eval["mapping_report"]
-            applied_transforms = cicids_eval["transformations_summary"]
-        elif unsw_eval["is_inferable"]:
-            overall_status = unsw_eval["status"]
-            selected_schema = "UNSW-NB15" if overall_status == CompatibilityStatus.EXACT_MATCH else "Adapted UNSW-NB15"
-            compatible_models = ["unsw-nb15-xgboost-binary", "unsw-nb15-xgboost-multiclass"]
-            mapping_report = unsw_eval["mapping_report"]
-            applied_transforms = unsw_eval["transformations_summary"]
-        else:
-            # Neither model is 100% inferable -> UNSUPPORTED
-            overall_status = CompatibilityStatus.UNSUPPORTED
-            selected_schema = f"Partial / Custom Schema ({len(feature_columns)} features detected)"
-            compatible_models = []
-            if cicids_eval["match_percentage"] >= unsw_eval["match_percentage"]:
-                mapping_report = cicids_eval["mapping_report"]
+        if req_norm:
+            if "gen" in req_norm or "isolation" in req_norm or "iforest" in req_norm:
+                if gen_eval["is_inferable"]:
+                    overall_status = gen_eval["status"]
+                    selected_schema = "Generalized 10-Feature Schema" if overall_status == CompatibilityStatus.EXACT_MATCH else "Adapted Generalized Schema"
+                    compatible_models = ["generalized-xgboost-binary", "isolation-forest-baseline"]
+                    mapping_report = gen_eval["mapping_report"]
+                    applied_transforms = gen_eval["transformations_summary"]
+                else:
+                    overall_status = CompatibilityStatus.UNSUPPORTED
+                    selected_schema = f"Custom / Incompatible with Generalized Models (Missing {gen_eval['missing_count']} features)"
+                    compatible_models = []
+                    mapping_report = gen_eval["mapping_report"]
+            elif "cicids" in req_norm:
+                if cicids_eval["is_inferable"]:
+                    overall_status = cicids_eval["status"]
+                    selected_schema = "CICIDS2017" if overall_status == CompatibilityStatus.EXACT_MATCH else "Adapted CICIDS2017"
+                    compatible_models = ["cicids2017-xgboost-multiclass"]
+                    mapping_report = cicids_eval["mapping_report"]
+                    applied_transforms = cicids_eval["transformations_summary"]
+                else:
+                    overall_status = CompatibilityStatus.UNSUPPORTED
+                    selected_schema = f"Custom / Incompatible with CICIDS2017 (Missing {cicids_eval['missing_count']} features)"
+                    compatible_models = []
+                    mapping_report = cicids_eval["mapping_report"]
+            elif "unsw" in req_norm:
+                if unsw_eval["is_inferable"]:
+                    overall_status = unsw_eval["status"]
+                    selected_schema = "UNSW-NB15" if overall_status == CompatibilityStatus.EXACT_MATCH else "Adapted UNSW-NB15"
+                    compatible_models = ["unsw-nb15-xgboost-binary", "unsw-nb15-xgboost-multiclass"]
+                    mapping_report = unsw_eval["mapping_report"]
+                    applied_transforms = unsw_eval["transformations_summary"]
+                else:
+                    overall_status = CompatibilityStatus.UNSUPPORTED
+                    selected_schema = f"Custom / Incompatible with UNSW-NB15 (Missing {unsw_eval['missing_count']} features)"
+                    compatible_models = []
+                    mapping_report = unsw_eval["mapping_report"]
             else:
+                overall_status = CompatibilityStatus.UNSUPPORTED
+                selected_schema = f"Custom / Unknown dataset request '{requested_dataset}'"
+                compatible_models = []
+                mapping_report = gen_eval["mapping_report"]
+        else:
+            # Automatic schema discovery across all models
+            if cicids_eval["is_inferable"]:
+                overall_status = cicids_eval["status"]
+                selected_schema = "CICIDS2017" if overall_status == CompatibilityStatus.EXACT_MATCH else "Adapted CICIDS2017"
+                compatible_models = ["cicids2017-xgboost-multiclass"]
+                mapping_report = cicids_eval["mapping_report"]
+                applied_transforms = cicids_eval["transformations_summary"]
+            elif unsw_eval["is_inferable"]:
+                overall_status = unsw_eval["status"]
+                selected_schema = "UNSW-NB15" if overall_status == CompatibilityStatus.EXACT_MATCH else "Adapted UNSW-NB15"
+                compatible_models = ["unsw-nb15-xgboost-binary", "unsw-nb15-xgboost-multiclass"]
                 mapping_report = unsw_eval["mapping_report"]
+                applied_transforms = unsw_eval["transformations_summary"]
+            elif gen_eval["is_inferable"]:
+                overall_status = gen_eval["status"]
+                selected_schema = "Generalized 10-Feature Schema" if overall_status == CompatibilityStatus.EXACT_MATCH else "Adapted Generalized Schema"
+                compatible_models = ["generalized-xgboost-binary", "isolation-forest-baseline"]
+                mapping_report = gen_eval["mapping_report"]
+                applied_transforms = gen_eval["transformations_summary"]
+            else:
+                # Neither model is 100% inferable -> UNSUPPORTED
+                overall_status = CompatibilityStatus.UNSUPPORTED
+                selected_schema = f"Partial / Custom Schema ({len(feature_columns)} features detected)"
+                compatible_models = []
+                best_match = max([cicids_eval, unsw_eval, gen_eval], key=lambda x: x["match_percentage"])
+                mapping_report = best_match["mapping_report"]
 
         # Build Explanation and Recommendations
         if overall_status == CompatibilityStatus.EXACT_MATCH:
             explanation = f"Input schema is directly 100% compatible with {selected_schema} model."
-            rec = "Proceed with standard XGBoost inference."
+            rec = "Proceed with standard inference."
         elif overall_status in [CompatibilityStatus.TRANSFORMABLE, CompatibilityStatus.TRANSFORMED_COMPATIBLE]:
             explanation = f"Dataset successfully adapted to 100% {selected_schema} compliance via legitimate aliases and mathematical derivations."
-            rec = f"Apply validated transformations ({len(applied_transforms)} transforms) and run XGBoost inference."
+            rec = f"Apply validated transformations ({len(applied_transforms)} transforms) and run inference."
         else:
             missing_c = cicids_eval["missing_count"]
             missing_u = unsw_eval["missing_count"]
-            explanation = f"Dataset cannot be safely adapted: missing {missing_c} required features for CICIDS2017 and {missing_u} features for UNSW-NB15. Missing features cannot be filled with arbitrary zeros or fabricated values."
+            missing_g = gen_eval["missing_count"]
+            explanation = f"Dataset cannot be safely adapted: missing {missing_c} features for CICIDS2017, {missing_u} features for UNSW-NB15, and {missing_g} features for Generalized models. Missing features cannot be filled with arbitrary zeros or fabricated values."
             rec = "Route to Evaluation-Only Mode for statistical exploratory data analysis without model inference."
 
         return {
@@ -553,10 +712,15 @@ class CompatibilityEngine:
             "models_evaluation": models_eval,
             "mapping_report": mapping_report,
             "applied_transformations": applied_transforms,
-            "missing_features": cicids_eval["missing_features"] if "cicids" in selected_schema.lower() else unsw_eval["missing_features"],
+            "missing_features": (
+                cicids_eval["missing_features"] if "cicids" in selected_schema.lower()
+                else (unsw_eval["missing_features"] if "unsw" in selected_schema.lower()
+                else gen_eval["missing_features"])
+            ),
             "extra_features": [c for c in feature_columns if c not in [m["source_feature"] for m in mapping_report if m["status"] == "mapped"]][:20],
             "cicids_match_percentage": cicids_eval["match_percentage"],
             "unsw_match_percentage": unsw_eval["match_percentage"],
+            "generalized_match_percentage": gen_eval["match_percentage"],
             "validation_errors": [],
             "warnings": warnings,
             "recommended_action": rec,
@@ -568,9 +732,21 @@ class CompatibilityEngine:
         """
         Evaluates a specific model's required features against available columns, aliases, and derivable formulas.
         """
-        is_cicids = "cicids" in target_model_name.lower()
-        required_features = CICIDS_70_FEATURES if is_cicids else UNSW_42_FEATURES
-        alias_dict = CICIDS_COLUMN_ALIASES if is_cicids else UNSW_COLUMN_ALIASES
+        is_gen = ("gen" in target_model_name.lower() or "isolation" in target_model_name.lower() or "iforest" in target_model_name.lower())
+        is_cicids = ("cicids" in target_model_name.lower()) and not is_gen
+
+        if is_gen:
+            required_features = GENERALIZED_10_FEATURES
+            alias_dict = GENERALIZED_COLUMN_ALIASES
+            model_type = "generalized"
+        elif is_cicids:
+            required_features = CICIDS_70_FEATURES
+            alias_dict = CICIDS_COLUMN_ALIASES
+            model_type = "cicids"
+        else:
+            required_features = UNSW_42_FEATURES
+            alias_dict = UNSW_COLUMN_ALIASES
+            model_type = "unsw"
 
         input_cols_set = set(feature_columns)
         input_cols_lower = {c.lower(): c for c in feature_columns}
@@ -627,6 +803,11 @@ class CompatibilityEngine:
                             assumptions = "Verified Flow Duration alias in microseconds (no scaling needed)."
                         elif matched_alias_src.lower() in ["dur", "duration_sec", "flow_duration_s"]:
                             assumptions = "Verified Flow Duration alias in seconds (scaled to microseconds)."
+                    elif is_gen and target_feat == "duration_seconds":
+                        if "us" in matched_alias_src.lower() or matched_alias_src.lower() == "flow duration":
+                            assumptions = "Verified Duration alias in microseconds (scaled to seconds)."
+                        else:
+                            assumptions = "Verified Duration alias in seconds."
                     transformations_summary.append(f"Mapped alias '{matched_alias_src}' -> '{target_feat}'")
                     resolved_features[target_feat] = (matched_alias_src, "ALIAS_MAPPED", assumptions)
 
@@ -644,7 +825,7 @@ class CompatibilityEngine:
             else:
                 # Check Derivability using already resolved base features
                 derivable, derivation_rule, used_cols = cls._can_derive_feature(
-                    target_feat, is_cicids, resolved_features, input_cols_norm
+                    target_feat, model_type, resolved_features, input_cols_norm
                 )
                 if derivable:
                     derived_count += 1
@@ -697,14 +878,34 @@ class CompatibilityEngine:
     def _can_derive_feature(
         cls,
         feat: str,
-        is_cicids: bool,
+        model_type: str,
         resolved: Dict[str, Tuple[str, str, str]],
         input_cols_norm: Dict[str, str]
     ) -> Tuple[bool, str, List[str]]:
         """
         Determines if a missing feature can be mathematically derived from resolved base features.
         """
-        if is_cicids:
+        if model_type == "generalized":
+            has_fwd_pkts = "forward_packets" in resolved
+            has_bwd_pkts = "backward_packets" in resolved
+            has_fwd_bytes = "forward_bytes" in resolved
+            has_bwd_bytes = "backward_bytes" in resolved
+            has_tot_pkts = "total_packets" in resolved
+            has_tot_bytes = "total_bytes" in resolved
+            has_dur = "duration_seconds" in resolved
+
+            if feat == "total_packets" and (has_fwd_pkts and has_bwd_pkts):
+                return True, "forward_packets + backward_packets", ["forward_packets", "backward_packets"]
+            elif feat == "total_bytes" and (has_fwd_bytes and has_bwd_bytes):
+                return True, "forward_bytes + backward_bytes", ["forward_bytes", "backward_bytes"]
+            elif feat == "packets_per_second" and ((has_tot_pkts or (has_fwd_pkts and has_bwd_pkts)) and has_dur):
+                return True, "total_packets / duration_seconds", ["total_packets", "duration_seconds"]
+            elif feat == "bytes_per_second" and ((has_tot_bytes or (has_fwd_bytes and has_bwd_bytes)) and has_dur):
+                return True, "total_bytes / duration_seconds", ["total_bytes", "duration_seconds"]
+            elif feat == "average_packet_size" and ((has_tot_bytes or (has_fwd_bytes and has_bwd_bytes)) and (has_tot_pkts or (has_fwd_pkts and has_bwd_pkts))):
+                return True, "total_bytes / total_packets", ["total_bytes", "total_packets"]
+
+        elif model_type == "cicids":
             has_fwd_len = "Total Length of Fwd Packets" in resolved
             has_bwd_len = "Total Length of Bwd Packets" in resolved
             has_fwd_pkts = "Total Fwd Packets" in resolved
@@ -738,7 +939,7 @@ class CompatibilityEngine:
                 return True, "Total Fwd Packets / (Flow Duration in sec)", ["Total Fwd Packets", "Flow Duration"]
             elif feat == "Bwd Packets/s" and (has_bwd_pkts and has_dur):
                 return True, "Total Backward Packets / (Flow Duration in sec)", ["Total Backward Packets", "Flow Duration"]
-        else:
+        else: # unsw
             has_fwd_len = "sbytes" in resolved
             has_bwd_len = "dbytes" in resolved
             has_fwd_pkts = "spkts" in resolved
@@ -765,10 +966,18 @@ class CompatibilityEngine:
         and mathematical feature derivations to produce an exact model-compliant feature matrix.
         """
         target = target_dataset.lower().strip()
-        is_cicids = "cicids" in target
+        is_gen = ("gen" in target or "isolation" in target or "iforest" in target)
+        is_cicids = ("cicids" in target) and not is_gen
 
-        required_features = CICIDS_70_FEATURES if is_cicids else UNSW_42_FEATURES
-        alias_dict = CICIDS_COLUMN_ALIASES if is_cicids else UNSW_COLUMN_ALIASES
+        if is_gen:
+            required_features = GENERALIZED_10_FEATURES
+            alias_dict = GENERALIZED_COLUMN_ALIASES
+        elif is_cicids:
+            required_features = CICIDS_70_FEATURES
+            alias_dict = CICIDS_COLUMN_ALIASES
+        else:
+            required_features = UNSW_42_FEATURES
+            alias_dict = UNSW_COLUMN_ALIASES
 
         input_cols_set = set(df.columns)
         input_cols_lower = {str(c).strip().lower(): str(c) for c in df.columns}
@@ -804,12 +1013,9 @@ class CompatibilityEngine:
                 val_series = pd.to_numeric(df[src_col], errors='coerce').fillna(0.0)
 
                 # Unit conversion check for Flow Duration:
-                # If flow_duration_us / dur_us -> already in us, keep verbatim
-                # If flow_duration_s / dur_s or (no unit suffix and max < 500.0) -> convert to us (* 1e6)
                 if is_cicids and feat == "Flow Duration":
                     s_name = str(src_col).lower()
                     if "us" in s_name or "micro" in s_name:
-                        # Already microseconds
                         pass
                     elif "sec" in s_name or s_name.endswith("_s") or s_name == "dur":
                         val_series = val_series * 1000000.0
@@ -817,12 +1023,43 @@ class CompatibilityEngine:
                         s_max = val_series.max()
                         if s_max > 0 and s_max < 500.0:
                             val_series = val_series * 1000000.0
+                elif is_gen and feat == "duration_seconds":
+                    s_name = str(src_col).lower()
+                    if "us" in s_name or "micro" in s_name or s_name in ["flow duration", "flow_duration"]:
+                        val_series = val_series / 1000000.0
+                    else:
+                        s_max = val_series.max()
+                        if s_max > 50000.0: # clearly microseconds
+                            val_series = val_series / 1000000.0
 
                 val_series = val_series.replace([np.inf, -np.inf], np.nan).fillna(0.0)
                 out_df[feat] = val_series
 
         # 2. Derive missing features mathematically
-        if is_cicids:
+        if is_gen:
+            has_fwd_pkts = "forward_packets" in out_df
+            has_bwd_pkts = "backward_packets" in out_df
+            has_fwd_bytes = "forward_bytes" in out_df
+            has_bwd_bytes = "backward_bytes" in out_df
+
+            if "total_packets" not in out_df and has_fwd_pkts and has_bwd_pkts:
+                out_df["total_packets"] = out_df["forward_packets"] + out_df["backward_packets"]
+
+            if "total_bytes" not in out_df and has_fwd_bytes and has_bwd_bytes:
+                out_df["total_bytes"] = out_df["forward_bytes"] + out_df["backward_bytes"]
+
+            if "packets_per_second" not in out_df and "total_packets" in out_df and "duration_seconds" in out_df:
+                dur_s = out_df["duration_seconds"].replace(0, 0.000001)
+                out_df["packets_per_second"] = out_df["total_packets"] / dur_s
+
+            if "bytes_per_second" not in out_df and "total_bytes" in out_df and "duration_seconds" in out_df:
+                dur_s = out_df["duration_seconds"].replace(0, 0.000001)
+                out_df["bytes_per_second"] = out_df["total_bytes"] / dur_s
+
+            if "average_packet_size" not in out_df and "total_bytes" in out_df and "total_packets" in out_df:
+                out_df["average_packet_size"] = out_df["total_bytes"] / out_df["total_packets"].replace(0, 1.0)
+
+        elif is_cicids:
             has_fwd_len = "Total Length of Fwd Packets" in out_df
             has_bwd_len = "Total Length of Bwd Packets" in out_df
             has_fwd_pkts = "Total Fwd Packets" in out_df
@@ -873,7 +1110,7 @@ class CompatibilityEngine:
             if "Bwd Packets/s" not in out_df and has_bwd_pkts and has_dur:
                 dur_in_sec = (out_df["Flow Duration"] / 1000000.0).replace(0, 0.000001)
                 out_df["Bwd Packets/s"] = out_df["Total Backward Packets"] / dur_in_sec
-        else:
+        else: # unsw
             has_fwd_len = "sbytes" in out_df
             has_bwd_len = "dbytes" in out_df
             has_fwd_pkts = "spkts" in out_df

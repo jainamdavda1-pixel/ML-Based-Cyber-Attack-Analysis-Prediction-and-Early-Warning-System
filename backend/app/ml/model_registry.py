@@ -2,9 +2,13 @@ import os
 import logging
 from typing import Dict, Any, Optional, List
 from app.core.config import settings
-from app.ml.registry_metadata import MODEL_REGISTRY_METADATA, CICIDS_70_FEATURES, UNSW_42_FEATURES
+from app.ml.registry_metadata import (
+    MODEL_REGISTRY_METADATA, CICIDS_70_FEATURES, UNSW_42_FEATURES, GENERALIZED_10_FEATURES
+)
 from app.ml.dataset_pipelines.cicids2017 import CICIDS2017Pipeline
 from app.ml.dataset_pipelines.unsw_nb15 import UNSWNB15Pipeline
+from app.ml.dataset_pipelines.generalized_xgb import GeneralizedXGBPipeline
+from app.ml.dataset_pipelines.isolation_forest import IsolationForestPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +21,8 @@ class ModelRegistry:
     def __init__(self):
         self.cicids_pipeline = CICIDS2017Pipeline()
         self.unsw_pipeline = UNSWNB15Pipeline()
+        self.generalized_pipeline = GeneralizedXGBPipeline()
+        self.isolation_forest_pipeline = IsolationForestPipeline()
         self._metadata = MODEL_REGISTRY_METADATA
 
     def get_pipeline(self, dataset: str):
@@ -25,8 +31,12 @@ class ModelRegistry:
             return self.cicids_pipeline
         elif "unsw" in ds:
             return self.unsw_pipeline
+        elif "isolation" in ds or "iforest" in ds:
+            return self.isolation_forest_pipeline
+        elif "generalized" in ds or "gen" in ds:
+            return self.generalized_pipeline
         else:
-            raise ValueError(f"Unknown or unsupported dataset '{dataset}'. Registered datasets: 'cicids2017', 'unsw-nb15'.")
+            raise ValueError(f"Unknown or unsupported dataset '{dataset}'. Registered datasets: 'cicids2017', 'unsw-nb15', 'generalized', 'isolation_forest'.")
 
     def get_model_info(self, model_id: str) -> Optional[Dict[str, Any]]:
         meta = self._metadata.get(model_id)
@@ -42,6 +52,14 @@ class ModelRegistry:
             info["artifact_path"] = settings.UNSW_MULTI_PATH if "multi" in model_id else settings.UNSW_XGB_PATH
             info["artifact_exists"] = os.path.exists(info["artifact_path"])
             info["is_ready"] = self.unsw_pipeline.is_ready()
+        elif "generalized" in model_id:
+            info["artifact_path"] = settings.GENERALIZED_XGB_MODEL_PATH
+            info["artifact_exists"] = os.path.exists(settings.GENERALIZED_XGB_MODEL_PATH)
+            info["is_ready"] = self.generalized_pipeline.is_ready()
+        elif "isolation" in model_id:
+            info["artifact_path"] = settings.ISOLATION_FOREST_MODEL_PATH
+            info["artifact_exists"] = os.path.exists(settings.ISOLATION_FOREST_MODEL_PATH)
+            info["is_ready"] = self.isolation_forest_pipeline.is_ready()
         return info
 
     def list_all_models(self) -> List[Dict[str, Any]]:
@@ -74,6 +92,31 @@ class ModelRegistry:
                 "classes": self.unsw_pipeline.classes,
                 "model_type": "XGBoost Binary + Multiclass",
                 "artifact_path": settings.UNSW_XGB_PATH,
+                "supported_sources": ["CSV", "PCAP", "Live Capture"]
+            },
+            "generalized_xgb": {
+                "dataset_name": "Generalized Cross-Dataset XGBoost",
+                "ready": self.generalized_pipeline.is_ready(),
+                "feature_count": len(GENERALIZED_10_FEATURES),
+                "features": GENERALIZED_10_FEATURES,
+                "class_count": len(self.generalized_pipeline.classes),
+                "classes": self.generalized_pipeline.classes,
+                "decision_threshold": self.generalized_pipeline.decision_threshold,
+                "model_type": "XGBoost Binary Classifier Pipeline",
+                "artifact_path": settings.GENERALIZED_XGB_MODEL_PATH,
+                "supported_sources": ["CSV", "PCAP", "Live Capture"]
+            },
+            "isolation_forest": {
+                "dataset_name": "Baseline Isolation Forest",
+                "ready": self.isolation_forest_pipeline.is_ready(),
+                "feature_count": len(GENERALIZED_10_FEATURES),
+                "features": GENERALIZED_10_FEATURES,
+                "class_count": 2,
+                "classes": self.isolation_forest_pipeline.classes,
+                "decision_threshold": self.isolation_forest_pipeline.decision_threshold,
+                "anomaly_rule": self.isolation_forest_pipeline.anomaly_rule,
+                "model_type": "Isolation Forest (Unsupervised Pipeline)",
+                "artifact_path": settings.ISOLATION_FOREST_MODEL_PATH,
                 "supported_sources": ["CSV", "PCAP", "Live Capture"]
             },
             "lstm_temporal": {

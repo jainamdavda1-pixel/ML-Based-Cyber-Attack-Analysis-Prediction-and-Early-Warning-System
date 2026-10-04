@@ -5,17 +5,23 @@ import { AlertItem } from '../types/alert';
 import { RiskBadge, AttackBadge } from '../components/common/Badge';
 
 export const AlertsPage: React.FC<{ selectedDataset?: string }> = ({ selectedDataset = 'cicids2017' }) => {
+  const getDatasetFilterValue = (ds: string) => {
+    const clean = ds.toLowerCase();
+    if (clean.includes('isolation') || clean.includes('iforest')) return 'Isolation Forest';
+    if (clean.includes('gen')) return 'Generalized';
+    if (clean.includes('unsw')) return 'UNSW-NB15';
+    return 'CICIDS2017';
+  };
+
   const [history, setHistory] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [datasetFilter, setDatasetFilter] = useState<string>(
-    selectedDataset.toLowerCase().includes('unsw') ? 'UNSW-NB15' : 'CICIDS2017'
-  );
+  const [datasetFilter, setDatasetFilter] = useState<string>(getDatasetFilterValue(selectedDataset));
   const [riskFilter, setRiskFilter] = useState('');
   const [selectedAlert, setSelectedAlert] = useState<AlertItem | null>(null);
 
   useEffect(() => {
-    setDatasetFilter(selectedDataset.toLowerCase().includes('unsw') ? 'UNSW-NB15' : 'CICIDS2017');
+    setDatasetFilter(getDatasetFilterValue(selectedDataset));
   }, [selectedDataset]);
 
   const loadHistory = async () => {
@@ -57,7 +63,7 @@ export const AlertsPage: React.FC<{ selectedDataset?: string }> = ({ selectedDat
 
         <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 text-xs font-mono text-cyan-400">
           <Database className="w-3.5 h-3.5" />
-          <span>Active Pipeline: {selectedDataset.toUpperCase()}</span>
+          <span>Active Pipeline: {getDatasetFilterValue(selectedDataset).toUpperCase()}</span>
         </div>
       </div>
 
@@ -83,6 +89,8 @@ export const AlertsPage: React.FC<{ selectedDataset?: string }> = ({ selectedDat
             <option value="All">All Datasets</option>
             <option value="CICIDS2017">CICIDS2017</option>
             <option value="UNSW-NB15">UNSW-NB15</option>
+            <option value="Generalized">Generalized XGBoost</option>
+            <option value="Isolation Forest">Isolation Forest</option>
           </select>
 
           <Filter className="w-4 h-4 text-cyan-400" />

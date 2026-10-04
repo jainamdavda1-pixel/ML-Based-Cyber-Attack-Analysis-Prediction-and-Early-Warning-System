@@ -30,6 +30,8 @@ export const Navbar: React.FC<NavbarProps> = ({ selectedDataset, onDatasetChange
         >
           <option value="cicids2017">CICIDS2017 (Multiclass XGBoost)</option>
           <option value="unsw-nb15">UNSW-NB15 (Binary & Multiclass)</option>
+          <option value="generalized">Generalized Cross-Dataset (Binary XGBoost)</option>
+          <option value="isolation_forest">Isolation Forest (Anomaly Detector)</option>
         </select>
       </div>
     </header>

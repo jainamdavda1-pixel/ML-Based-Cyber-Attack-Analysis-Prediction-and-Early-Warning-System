@@ -45,22 +45,43 @@ export const AboutPage: React.FC<{ selectedDataset?: string }> = ({ selectedData
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono pt-2">
           <div className={`p-4 rounded-xl border transition-all ${
-            !isUnsw
+            selectedDataset.toLowerCase().includes('cicids')
               ? 'bg-cyan-950/40 border-cyan-500/50 shadow-md shadow-cyan-500/10'
               : 'bg-slate-900/60 border-slate-800'
           }`}>
-            <span className="font-bold text-cyan-400 block text-sm">1. CICIDS2017 Dataset {!isUnsw && '(Active)'}</span>
+            <span className="font-bold text-cyan-400 block text-sm">1. CICIDS2017 Benchmark {selectedDataset.toLowerCase().includes('cicids') && '(Active)'}</span>
             <p className="text-slate-300 text-xs mt-1">70 Network Flow Features • 15 Attack Classes • 383,203 Test Evaluation Samples • XGBoost Multiclass Architecture</p>
             <p className="text-[11px] text-slate-400 mt-2">Decision Threshold: 0.94 • Microsecond flow duration scaling</p>
           </div>
+
           <div className={`p-4 rounded-xl border transition-all ${
-            isUnsw
+            selectedDataset.toLowerCase().includes('unsw')
               ? 'bg-cyan-950/40 border-cyan-500/50 shadow-md shadow-cyan-500/10'
               : 'bg-slate-900/60 border-slate-800'
           }`}>
-            <span className="font-bold text-cyan-400 block text-sm">2. UNSW-NB15 Dataset {isUnsw && '(Active)'}</span>
+            <span className="font-bold text-cyan-400 block text-sm">2. UNSW-NB15 Benchmark {selectedDataset.toLowerCase().includes('unsw') && '(Active)'}</span>
             <p className="text-slate-300 text-xs mt-1">42 Network Flow Features • 10 Attack Classes • 82,332 Test Evaluation Samples • Random Forest & XGBoost Binary/Multiclass</p>
             <p className="text-[11px] text-slate-400 mt-2">Decision Boundary: 0.50 • Connection state & load features</p>
+          </div>
+
+          <div className={`p-4 rounded-xl border transition-all ${
+            selectedDataset.toLowerCase().includes('gen')
+              ? 'bg-cyan-950/40 border-cyan-500/50 shadow-md shadow-cyan-500/10'
+              : 'bg-slate-900/60 border-slate-800'
+          }`}>
+            <span className="font-bold text-cyan-400 block text-sm">3. Generalized Cross-Dataset XGBoost {selectedDataset.toLowerCase().includes('gen') && '(Active)'}</span>
+            <p className="text-slate-300 text-xs mt-1">10 Canonical Flow Aggregations • Binary Attack Detector • Calibrated Decision Threshold 0.1743</p>
+            <p className="text-[11px] text-slate-400 mt-2">Cross-dataset robustness targeting 1% Benign False Positive Rate</p>
+          </div>
+
+          <div className={`p-4 rounded-xl border transition-all ${
+            selectedDataset.toLowerCase().includes('isolation') || selectedDataset.toLowerCase().includes('iforest')
+              ? 'bg-cyan-950/40 border-cyan-500/50 shadow-md shadow-cyan-500/10'
+              : 'bg-slate-900/60 border-slate-800'
+          }`}>
+            <span className="font-bold text-cyan-400 block text-sm">4. Baseline Isolation Forest { (selectedDataset.toLowerCase().includes('isolation') || selectedDataset.toLowerCase().includes('iforest')) && '(Active)'}</span>
+            <p className="text-slate-300 text-xs mt-1">10 Canonical Flow Aggregations • Unsupervised Zero-Day Outlier Isolation</p>
+            <p className="text-[11px] text-slate-400 mt-2">Decision Threshold: 0.023416 on clean baseline traffic (contamination 10%)</p>
           </div>
         </div>
       </div>
@@ -69,21 +90,13 @@ export const AboutPage: React.FC<{ selectedDataset?: string }> = ({ selectedData
       <div className="cyber-card space-y-3">
         <h3 className="text-sm font-semibold text-slate-200 font-mono flex items-center space-x-2">
           <AlertTriangle className="w-4 h-4 text-amber-400" />
-          <span>Calibrated Risk Scoring Formula ({isUnsw ? 'UNSW-NB15' : 'CICIDS2017'})</span>
+          <span>Calibrated Risk Scoring Formula</span>
         </h3>
         <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-xl space-y-2 text-xs font-mono">
           <div className="text-cyan-400 font-bold">P(Attack) = 1.0 - P(Normal / BENIGN)</div>
           <div className="text-amber-400 font-bold">Risk Score = P(Attack) × 100.0</div>
           <p className="text-slate-400 text-[11px] pt-1">
-            {isUnsw ? (
-              <>
-                Validation Decision Boundary: <span className="text-slate-200 font-semibold">0.50</span>. Held-out test performance achieved <span className="text-emerald-400">98.20% Precision</span>, <span className="text-emerald-400">98.70% Recall</span>, <span className="text-cyan-400">98.45% Accuracy</span>, and <span className="text-amber-400">99.68% ROC-AUC</span> on 82,332 samples.
-              </>
-            ) : (
-              <>
-                Frozen Validation Threshold: <span className="text-slate-200 font-semibold">0.94</span> selected on validation dataset. Held-out test performance at frozen threshold 0.94 achieved <span className="text-emerald-400">99.48% Precision</span>, <span className="text-emerald-400">99.96% Recall</span>, and <span className="text-amber-400">0.1052% False Positive Rate</span> on 383,203 samples.
-              </>
-            )}
+            Decision thresholds are calibrated per model: CICIDS2017 at frozen threshold <span className="text-slate-200 font-semibold">0.94</span> (99.48% precision, 99.96% recall); UNSW-NB15 at validation boundary <span className="text-slate-200 font-semibold">0.50</span> (98.20% precision, 98.70% recall); Generalized XGBoost at <span className="text-slate-200 font-semibold">0.1743</span> (1% benign FPR); Isolation Forest at <span className="text-slate-200 font-semibold">0.023416</span> outlier decision score.
           </p>
         </div>
       </div>

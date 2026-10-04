@@ -65,6 +65,14 @@ export function IncidentsPage({ selectedDataset = 'cicids2017' }: IncidentsPageP
     }
   };
 
+  const getPipelineLabel = (ds: string) => {
+    const clean = ds.toLowerCase();
+    if (clean.includes('isolation') || clean.includes('iforest')) return 'ISOLATION FOREST';
+    if (clean.includes('gen')) return 'GENERALIZED XGB';
+    if (clean.includes('unsw')) return 'UNSW-NB15';
+    return 'CICIDS2017';
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -83,7 +91,7 @@ export function IncidentsPage({ selectedDataset = 'cicids2017' }: IncidentsPageP
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 text-xs font-mono text-cyan-400">
             <Database className="w-3.5 h-3.5" />
-            <span>Active Pipeline: {selectedDataset.toUpperCase()}</span>
+            <span>Active Pipeline: {getPipelineLabel(selectedDataset)}</span>
           </div>
 
           <select

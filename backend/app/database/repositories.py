@@ -43,18 +43,50 @@ class PredictionRepository:
     @staticmethod
     def get_history(db: Session, limit: int = 100, dataset: str = None, risk_level: str = None):
         query = db.query(PredictionRecord)
-        if dataset:
-            query = query.filter(PredictionRecord.dataset == dataset)
+        if dataset and dataset != "All":
+            ds_clean = dataset.lower().strip()
+            if "unsw" in ds_clean:
+                query = query.filter(PredictionRecord.dataset.ilike("%unsw%"))
+            elif "gen" in ds_clean:
+                query = query.filter(PredictionRecord.dataset.ilike("%gen%"))
+            elif "iso" in ds_clean or "iforest" in ds_clean:
+                query = query.filter(PredictionRecord.dataset.ilike("%iso%") | PredictionRecord.dataset.ilike("%iforest%"))
+            elif "cicids" in ds_clean:
+                query = query.filter(PredictionRecord.dataset.ilike("%cicids%"))
+            else:
+                query = query.filter(PredictionRecord.dataset == dataset)
         if risk_level:
             query = query.filter(PredictionRecord.risk_level == risk_level)
         return query.order_by(PredictionRecord.timestamp.desc()).limit(limit).all()
 
     @staticmethod
     def get_dashboard_summary(db: Session, dataset: str = None):
-        ds = "UNSW-NB15" if dataset and "unsw" in dataset.lower() else "CICIDS2017"
+        ds_raw = dataset or "CICIDS2017"
+        ds_lower = ds_raw.lower().strip()
         
-        pred_records = db.query(PredictionRecord).filter(PredictionRecord.dataset == ds).all()
-        flow_records = db.query(FlowRecord).filter(FlowRecord.dataset == ds).all()
+        if "isolation" in ds_lower or "iforest" in ds_lower:
+            target_ds = "isolation-forest"
+            pred_filter = (PredictionRecord.dataset.ilike("%iso%") | PredictionRecord.dataset.ilike("%iforest%"))
+            flow_filter = (FlowRecord.dataset.ilike("%iso%") | FlowRecord.dataset.ilike("%iforest%"))
+            default_normal = "Normal"
+        elif "gen" in ds_lower:
+            target_ds = "generalized-xgb"
+            pred_filter = PredictionRecord.dataset.ilike("%gen%")
+            flow_filter = FlowRecord.dataset.ilike("%gen%")
+            default_normal = "Normal"
+        elif "unsw" in ds_lower:
+            target_ds = "UNSW-NB15"
+            pred_filter = PredictionRecord.dataset.ilike("%unsw%")
+            flow_filter = FlowRecord.dataset.ilike("%unsw%")
+            default_normal = "Normal"
+        else:
+            target_ds = "CICIDS2017"
+            pred_filter = PredictionRecord.dataset.ilike("%cicids%")
+            flow_filter = FlowRecord.dataset.ilike("%cicids%")
+            default_normal = "BENIGN"
+        
+        pred_records = db.query(PredictionRecord).filter(pred_filter).all()
+        flow_records = db.query(FlowRecord).filter(flow_filter).all()
         
         total = len(pred_records) + len(flow_records)
         attacks = sum(1 for r in pred_records if r.is_attack) + sum(1 for r in flow_records if r.is_attack)
@@ -66,14 +98,14 @@ class PredictionRepository:
         for r in pred_records:
             rl = r.risk_level or "Low"
             risk_dist[rl] = risk_dist.get(rl, 0) + 1
-            cat = r.prediction or ("Normal" if "unsw" in ds.lower() else "BENIGN")
+            cat = r.prediction or default_normal
             cat_dist[cat] = cat_dist.get(cat, 0) + 1
             sum_risk += (r.risk_score or 0.0)
             
         for r in flow_records:
             rl = r.risk_level or "Low"
             risk_dist[rl] = risk_dist.get(rl, 0) + 1
-            cat = r.prediction or ("Normal" if "unsw" in ds.lower() else "BENIGN")
+            cat = r.prediction or default_normal
             cat_dist[cat] = cat_dist.get(cat, 0) + 1
             sum_risk += (r.risk_score or 0.0)
             
@@ -109,7 +141,7 @@ class PredictionRepository:
         recent_alerts = combined_alerts[:15]
         
         return {
-            "dataset": ds,
+            "dataset": target_ds,
             "total_analyzed": total,
             "attacks_detected": attacks,
             "attack_percentage": round((attacks / total * 100), 2) if total > 0 else 0.0,

@@ -68,8 +68,52 @@ class Settings(BaseSettings):
     def UNSW_ENCODER_PATH(self) -> str:
         return resolve_artifact_path(os.path.join(self.MODEL_DIR, "unsw-nb15"), "attack_category_label_encoder.pkl")
     
-    # Risk Calibrated Threshold
+    # Generalized XGBoost Artifact Paths
+    @property
+    def GENERALIZED_XGB_MODEL_PATH(self) -> str:
+        for sub in ["generalized-xgb", "generalized_xgb"]:
+            p = resolve_artifact_path(os.path.join(self.MODEL_DIR, sub), "generalized_xgb_final.joblib")
+            if os.path.exists(p):
+                return p
+        return os.path.join(self.MODEL_DIR, "generalized-xgb", "generalized_xgb_final.joblib")
+
+    @property
+    def GENERALIZED_XGB_FEATURES_PATH(self) -> str:
+        for sub in ["generalized-xgb", "generalized_xgb"]:
+            p = resolve_artifact_path(os.path.join(self.MODEL_DIR, sub), "generalized_xgb_features.json")
+            if os.path.exists(p):
+                return p
+        return os.path.join(self.MODEL_DIR, "generalized-xgb", "generalized_xgb_features.json")
+
+    @property
+    def GENERALIZED_XGB_THRESHOLD_PATH(self) -> str:
+        for sub in ["generalized-xgb", "generalized_xgb"]:
+            p = resolve_artifact_path(os.path.join(self.MODEL_DIR, sub), "generalized_xgb_threshold_config.json")
+            if os.path.exists(p):
+                return p
+        return os.path.join(self.MODEL_DIR, "generalized-xgb", "generalized_xgb_threshold_config.json")
+
+    # Isolation Forest Artifact Paths
+    @property
+    def ISOLATION_FOREST_MODEL_PATH(self) -> str:
+        for sub in ["isolation-forest", "isolation_forest"]:
+            p = resolve_artifact_path(os.path.join(self.MODEL_DIR, sub), "isolation_forest_baseline.joblib")
+            if os.path.exists(p):
+                return p
+        return os.path.join(self.MODEL_DIR, "isolation-forest", "isolation_forest_baseline.joblib")
+
+    @property
+    def ISOLATION_FOREST_THRESHOLD_PATH(self) -> str:
+        for sub in ["isolation-forest", "isolation_forest"]:
+            p = resolve_artifact_path(os.path.join(self.MODEL_DIR, sub), "isolation_forest_threshold_config.json")
+            if os.path.exists(p):
+                return p
+        return os.path.join(self.MODEL_DIR, "isolation-forest", "isolation_forest_threshold_config.json")
+
+    # Calibrated Thresholds
     CICIDS_RISK_THRESHOLD: float = 0.94
+    GENERALIZED_XGB_THRESHOLD: float = 0.1743
+    ISOLATION_FOREST_THRESHOLD: float = 0.02341647450041217
 
 settings = Settings()
 

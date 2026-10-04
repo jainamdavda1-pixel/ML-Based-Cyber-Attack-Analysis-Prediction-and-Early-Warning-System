@@ -12,7 +12,15 @@ export const ModelPerformancePage: React.FC<ModelPerformanceProps> = ({ selected
   const [modelInfo, setModelInfo] = useState<any>(null);
 
   // Synchronize internal active tab with selectedDataset from top-right navbar
-  const activeTab = selectedDataset.toLowerCase().includes('unsw') ? 'unsw' : 'cicids';
+  const getActiveTab = (ds: string): 'cicids' | 'unsw' | 'generalized' | 'isolation_forest' => {
+    const clean = ds.toLowerCase();
+    if (clean.includes('isolation') || clean.includes('iforest')) return 'isolation_forest';
+    if (clean.includes('gen')) return 'generalized';
+    if (clean.includes('unsw')) return 'unsw';
+    return 'cicids';
+  };
+
+  const activeTab = getActiveTab(selectedDataset);
 
   useEffect(() => {
     fetchApi<any>('/models')
@@ -20,9 +28,15 @@ export const ModelPerformancePage: React.FC<ModelPerformanceProps> = ({ selected
       .catch(console.error);
   }, [selectedDataset]);
 
-  const handleTabChange = (tab: 'cicids' | 'unsw') => {
+  const handleTabChange = (tab: 'cicids' | 'unsw' | 'generalized' | 'isolation_forest') => {
     if (onDatasetChange) {
-      onDatasetChange(tab === 'cicids' ? 'cicids2017' : 'unsw-nb15');
+      const mapping = {
+        cicids: 'cicids2017',
+        unsw: 'unsw-nb15',
+        generalized: 'generalized',
+        isolation_forest: 'isolation_forest'
+      };
+      onDatasetChange(mapping[tab]);
     }
   };
 
@@ -90,6 +104,15 @@ export const ModelPerformancePage: React.FC<ModelPerformanceProps> = ({ selected
     ]
   };
 
+  const getModelTitle = () => {
+    switch (activeTab) {
+      case 'generalized': return 'Generalized Cross-Dataset XGBoost';
+      case 'isolation_forest': return 'Baseline Isolation Forest (Anomaly Detector)';
+      case 'unsw': return 'UNSW-NB15 Models';
+      default: return 'CICIDS2017 Multiclass XGBoost';
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60 p-6 rounded-2xl border border-slate-800 backdrop-blur-xl">
@@ -99,15 +122,15 @@ export const ModelPerformancePage: React.FC<ModelPerformanceProps> = ({ selected
             <h1 className="text-2xl font-bold text-slate-100 font-mono">MODEL PERFORMANCE & METRICS TELEMETRY</h1>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Empirical classification metrics, per-class performance breakdowns, and architecture specifications for {activeTab === 'cicids' ? 'CICIDS2017' : 'UNSW-NB15'}.
+            Empirical classification metrics, per-class performance breakdowns, and architecture specifications for {getModelTitle()}.
           </p>
         </div>
 
         {/* Dataset Selector Tabs */}
-        <div className="flex space-x-2 bg-slate-800/80 p-1 rounded-xl border border-slate-700">
+        <div className="flex flex-wrap gap-1.5 bg-slate-800/80 p-1 rounded-xl border border-slate-700">
           <button
             onClick={() => handleTabChange('cicids')}
-            className={`flex items-center space-x-2 px-3.5 py-2 text-xs font-mono font-semibold rounded-lg transition ${
+            className={`flex items-center space-x-2 px-3 py-1.5 text-xs font-mono font-semibold rounded-lg transition ${
               activeTab === 'cicids'
                 ? 'bg-cyan-600 text-slate-950 font-bold shadow-md shadow-cyan-600/20'
                 : 'text-slate-400 hover:text-slate-200'
@@ -119,7 +142,7 @@ export const ModelPerformancePage: React.FC<ModelPerformanceProps> = ({ selected
 
           <button
             onClick={() => handleTabChange('unsw')}
-            className={`flex items-center space-x-2 px-3.5 py-2 text-xs font-mono font-semibold rounded-lg transition ${
+            className={`flex items-center space-x-2 px-3 py-1.5 text-xs font-mono font-semibold rounded-lg transition ${
               activeTab === 'unsw'
                 ? 'bg-cyan-600 text-slate-950 font-bold shadow-md shadow-cyan-600/20'
                 : 'text-slate-400 hover:text-slate-200'
@@ -127,6 +150,30 @@ export const ModelPerformancePage: React.FC<ModelPerformanceProps> = ({ selected
           >
             <Database className="w-3.5 h-3.5" />
             <span>UNSW-NB15</span>
+          </button>
+
+          <button
+            onClick={() => handleTabChange('generalized')}
+            className={`flex items-center space-x-2 px-3 py-1.5 text-xs font-mono font-semibold rounded-lg transition ${
+              activeTab === 'generalized'
+                ? 'bg-cyan-600 text-slate-950 font-bold shadow-md shadow-cyan-600/20'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Cpu className="w-3.5 h-3.5" />
+            <span>Generalized XGB</span>
+          </button>
+
+          <button
+            onClick={() => handleTabChange('isolation_forest')}
+            className={`flex items-center space-x-2 px-3 py-1.5 text-xs font-mono font-semibold rounded-lg transition ${
+              activeTab === 'isolation_forest'
+                ? 'bg-cyan-600 text-slate-950 font-bold shadow-md shadow-cyan-600/20'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Isolation Forest</span>
           </button>
         </div>
       </div>
@@ -280,6 +327,113 @@ export const ModelPerformancePage: React.FC<ModelPerformanceProps> = ({ selected
                   {cat}
                 </span>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Generalized XGBoost Tab Content */}
+      {activeTab === 'generalized' && (
+        <div className="space-y-6">
+          {/* Top Metrics Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard title="Binary Accuracy" value="95.82%" subtitle="Cross-dataset test benchmark" icon={CheckCircle} color="emerald" />
+            <StatCard title="Precision" value="98.90%" subtitle="Low false-positive rate" icon={BarChart3} color="cyan" />
+            <StatCard title="Recall" value="92.40%" subtitle="Attack detection sensitivity" icon={BarChart3} color="indigo" />
+            <StatCard title="ROC-AUC" value="98.62%" subtitle="Area under ROC curve" icon={BarChart3} color="amber" />
+          </div>
+
+          {/* Model Architecture & Specs */}
+          <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+            <div>
+              <span className="text-slate-500 block">Trained Architecture:</span>
+              <span className="text-slate-200 font-semibold">Generalized Binary XGBoost Classifier</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block">Feature Dimension:</span>
+              <span className="text-cyan-400 font-semibold">10 Canonical Flow Aggregations</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block">Calibrated Decision Threshold:</span>
+              <span className="text-emerald-400 font-semibold">0.1743 (1.0% Benign FPR Target)</span>
+            </div>
+          </div>
+
+          {/* Cross-Dataset Canonical Feature List */}
+          <div className="cyber-card space-y-3">
+            <h3 className="text-sm font-semibold text-slate-200 font-mono flex items-center space-x-2">
+              <Cpu className="w-4 h-4 text-cyan-400" />
+              <span>10 Canonical Cross-Dataset Input Features</span>
+            </h3>
+            <p className="text-xs text-slate-300">
+              The Generalized XGBoost model is trained on domain-invariant network flow metrics computed directly from flow aggregations without dataset-specific bias:
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 text-xs font-mono">
+              {[
+                { name: 'duration_seconds', desc: 'Total bidirectional flow duration (seconds)' },
+                { name: 'forward_packets', desc: 'Total forward/source-to-destination packet count' },
+                { name: 'backward_packets', desc: 'Total backward/destination-to-source packet count' },
+                { name: 'forward_bytes', desc: 'Total volume of bytes transferred in forward direction' },
+                { name: 'backward_bytes', desc: 'Total volume of bytes transferred in backward direction' },
+                { name: 'total_packets', desc: 'Sum of forward and backward packet counts' },
+                { name: 'total_bytes', desc: 'Sum of forward and backward transferred payload bytes' },
+                { name: 'packets_per_second', desc: 'Instantaneous packet transmission rate (pkt/s)' },
+                { name: 'bytes_per_second', desc: 'Instantaneous throughput bandwidth rate (B/s)' },
+                { name: 'average_packet_size', desc: 'Mean size per packet across the entire flow duration' }
+              ].map(f => (
+                <div key={f.name} className="p-3 bg-slate-950/70 border border-slate-800 rounded-xl flex flex-col justify-between">
+                  <span className="text-cyan-400 font-bold">{f.name}</span>
+                  <span className="text-slate-400 text-[11px] mt-1">{f.desc}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Isolation Forest Tab Content */}
+      {activeTab === 'isolation_forest' && (
+        <div className="space-y-6">
+          {/* Top Metrics Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard title="Model Paradigm" value="Unsupervised" subtitle="Isolation Forest Baseline" icon={ShieldCheck} color="indigo" />
+            <StatCard title="Decision Score Threshold" value="0.0234" subtitle="10% quantile clean traffic" icon={BarChart3} color="cyan" />
+            <StatCard title="Contamination" value="10.0%" subtitle="Outlier baseline factor" icon={BarChart3} color="amber" />
+            <StatCard title="Feature Dimension" value="10 Features" subtitle="Canonical flow metrics" icon={CheckCircle} color="emerald" />
+          </div>
+
+          {/* Model Architecture & Specs */}
+          <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+            <div>
+              <span className="text-slate-500 block">Trained Architecture:</span>
+              <span className="text-slate-200 font-semibold">Baseline Isolation Forest (iForest)</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block">Inference Decision Rule:</span>
+              <span className="text-cyan-400 font-semibold">decision_score &lt; 0.023416 → Anomaly</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block">Zero-Day Anomaly Detection:</span>
+              <span className="text-emerald-400 font-semibold">Unsupervised Outlier Isolation</span>
+            </div>
+          </div>
+
+          {/* Anomaly Detection Methodology */}
+          <div className="cyber-card space-y-3">
+            <h3 className="text-sm font-semibold text-slate-200 font-mono flex items-center space-x-2">
+              <ShieldCheck className="w-4 h-4 text-cyan-400" />
+              <span>Unsupervised Isolation Forest Baseline Methodology</span>
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Isolation Forest isolates anomalies by randomly selecting a feature and randomly splitting value between the maximum and minimum values of that feature. Since recursive partitioning produces noticeably shorter paths for anomalies, it detects unseen traffic deviations and zero-day patterns without requiring ground-truth labels.
+            </p>
+            <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2 text-xs font-mono">
+              <div className="text-cyan-300 font-semibold">Evaluation Rule:</div>
+              <div className="text-slate-300 text-xs">
+                score = <span className="text-amber-400">decision_function(X)</span>
+              </div>
+              <div className="text-slate-300 text-xs">
+                Prediction = <span className="text-red-400">"Anomaly"</span> if score &lt; <span className="text-cyan-400">0.02341647</span> else <span className="text-emerald-400">"Normal"</span>
+              </div>
             </div>
           </div>
         </div>
