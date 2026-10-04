@@ -170,6 +170,51 @@ class SharedPipelineService:
                 else ("Generalized-XGB" if dataset_norm == "generalized" else "Isolation-Forest"))
             )
 
+            # Compute secondary cross-dataset anomaly and generalized telemetry if canonical features available
+            feat_map = f.get("features", f)
+            feat_map_lower = {str(k).strip().lower(): v for k, v in feat_map.items()}
+            canon_row = []
+            for k in GENERALIZED_10_FEATURES:
+                if k in feat_map:
+                    v = feat_map[k]
+                elif k.lower() in feat_map_lower:
+                    v = feat_map_lower[k.lower()]
+                else:
+                    v = 0.0
+                try:
+                    num_v = float(v)
+                    if np.isinf(num_v) or np.isnan(num_v):
+                        num_v = 0.0
+                except (ValueError, TypeError):
+                    num_v = 0.0
+                canon_row.append(num_v)
+
+            canon_X = np.array([canon_row], dtype=np.float32)
+
+            # Isolation Forest anomaly scoring
+            if isolation_forest_wrapper.is_loaded():
+                try:
+                    iforest_score = float(isolation_forest_wrapper.decision_function(canon_X)[0])
+                    is_anomaly_outlier = iforest_score < isolation_forest_wrapper.threshold
+                except Exception:
+                    iforest_score = 0.0
+                    is_anomaly_outlier = False
+            else:
+                iforest_score = 0.0
+                is_anomaly_outlier = False
+
+            # Generalized XGBoost scoring
+            if generalized_xgb_wrapper.is_loaded():
+                try:
+                    gen_p = float(generalized_xgb_wrapper.predict_proba(canon_X)[0][1])
+                    gen_pred = "Attack" if gen_p >= generalized_xgb_wrapper.threshold else "Normal"
+                except Exception:
+                    gen_p = 0.0
+                    gen_pred = "Normal"
+            else:
+                gen_p = attack_prob
+                gen_pred = predicted_class
+
             flow_res = {
                 "flow_id": f.get("flow_id", f"flow-{uuid.uuid4().hex[:12]}"),
                 "job_id": job_id,
@@ -192,14 +237,18 @@ class SharedPipelineService:
                 "risk_score": risk_score,
                 "risk_level": risk_level,
                 "prediction_margin": round(margin, 4),
+                "anomaly_score": round(iforest_score, 4),
+                "is_anomaly": is_anomaly_outlier,
+                "generalized_prob": round(gen_p, 4),
+                "generalized_prediction": gen_pred,
                 "features": f.get("features", {})
             }
 
             processed_flow_objects.append(flow_res)
             results.append(flow_res)
 
-            # Auto-correlate into incident if attack detected
-            if is_attack and persist:
+            # Auto-correlate into incident if attack detected or extreme anomaly outlier
+            if (is_attack or is_anomaly_outlier) and persist:
                 severity = "Critical" if risk_level == "Critical" else ("High" if risk_level == "High" else "Medium")
                 title = f"Potential {predicted_class} attack from {flow_res['src_ip']}"
                 IncidentRepository.create_or_update_incident(

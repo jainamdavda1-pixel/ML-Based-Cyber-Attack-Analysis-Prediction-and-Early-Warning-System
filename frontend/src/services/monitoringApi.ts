@@ -1,15 +1,14 @@
 import { fetchApi } from './api';
-import { MonitoringStatus, MonitoringSession } from '../types/monitoring';
-import { NetworkFlow } from '../types/traffic';
+import { MonitoringStatus, MonitoringSession, InterfaceInfo, LiveNetworkFlow } from '../types/monitoring';
 
 export const monitoringApi = {
   getInterfaces: () =>
-    fetchApi<{ permitted_interfaces: string[] }>('/monitoring/interfaces'),
+    fetchApi<{ permitted_interfaces: (string | InterfaceInfo)[] }>('/monitoring/interfaces'),
 
   getStatus: () =>
     fetchApi<MonitoringStatus>('/monitoring/status'),
 
-  startMonitoring: (iface: string, dataset = 'cicids2017') =>
+  startMonitoring: (iface: string, dataset = 'generalized') =>
     fetchApi<any>('/monitoring/start', {
       method: 'POST',
       body: JSON.stringify({ interface: iface, dataset }),
@@ -24,5 +23,5 @@ export const monitoringApi = {
     fetchApi<{ current_session: MonitoringStatus; past_sessions: MonitoringSession[] }>('/monitoring/statistics'),
 
   getLiveFlows: (limit = 50) =>
-    fetchApi<NetworkFlow[]>(`/monitoring/flows?limit=${limit}`),
+    fetchApi<LiveNetworkFlow[]>(`/monitoring/flows?limit=${limit}`),
 };
